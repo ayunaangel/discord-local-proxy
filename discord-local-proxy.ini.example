@@ -1,0 +1,26 @@
+; Copie este arquivo para discord-local-proxy.ini.
+; No Windows, ele pode ficar na raiz do canal, ao lado de Update.exe.
+; No Linux, use o diretório do Discord em ~/.config ou passe --config.
+
+[proxy]
+; none, http ou socks5
+type = none
+host =
+port =
+username =
+; A senha em texto simples exige permissão 0600 no Linux.
+password =
+; Alternativa recomendada: nome de uma variável de ambiente com a senha.
+password_env =
+connect_timeout = 10
+
+[voice]
+enabled = true
+delay_ms = 50
+; Opcional: caminho absoluto ou relativo a este INI (máximo 65.507 bytes).
+; Se vazio, procura discord-local-proxy-packet.bin e drover-packet.bin ao lado.
+packet_file =
+
+[discord]
+; Opcional: caminho absoluto para uma instalação personalizada.
+executable =

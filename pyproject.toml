@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "discord-local-proxy"
+version = "0.3.0"
+description = "Per-user Discord proxy launcher for Windows and Linux"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Discord Local Proxy contributors" }]
+dependencies = []
+
+[project.scripts]
+discord-local-proxy = "discord_local_proxy.cli:main"
+
+[project.gui-scripts]
+discord-local-proxy-gui = "discord_local_proxy.cli:gui_main"
+
+[tool.setuptools.packages.find]
+include = ["discord_local_proxy*"]
+
+[tool.setuptools.package-data]
+discord_local_proxy = ["native/*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
