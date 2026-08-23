@@ -10,6 +10,7 @@ from discord_local_proxy.diagnostics import (
     LOGGER,
     LOG_BACKUPS,
     MAX_LOG_BYTES,
+    close_logging,
     configure_logging,
     log_directory,
     log_file_path,
@@ -44,25 +45,33 @@ class DiagnosticPathTests(unittest.TestCase):
 
     def test_configure_logging_writes_a_rotating_private_log(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "logs" / "diagnostic.log"
-            self.assertEqual(configure_logging(path=path), path.absolute())
-            LOGGER.error("diagnóstico de teste")
-            for handler in LOGGER.handlers:
-                handler.flush()
-            self.assertIn("diagnóstico de teste", path.read_text(encoding="utf-8"))
-            rotating = [
-                handler for handler in LOGGER.handlers if hasattr(handler, "maxBytes")
-            ]
-            self.assertEqual(len(rotating), 1)
-            self.assertEqual(rotating[0].maxBytes, MAX_LOG_BYTES)
-            self.assertEqual(rotating[0].backupCount, LOG_BACKUPS)
-            if os.name != "nt":
-                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-                rotating[0].doRollover()
-                LOGGER.error("registro após rotação")
-                rotating[0].flush()
-                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-                self.assertEqual(Path(f"{path}.1").stat().st_mode & 0o777, 0o600)
+            try:
+                path = Path(temporary_directory) / "logs" / "diagnostic.log"
+                self.assertEqual(configure_logging(path=path), path.absolute())
+                LOGGER.error("diagnóstico de teste")
+                for handler in LOGGER.handlers:
+                    handler.flush()
+                self.assertIn("diagnóstico de teste", path.read_text(encoding="utf-8"))
+                rotating = [
+                    handler
+                    for handler in LOGGER.handlers
+                    if hasattr(handler, "maxBytes")
+                ]
+                self.assertEqual(len(rotating), 1)
+                self.assertEqual(rotating[0].maxBytes, MAX_LOG_BYTES)
+                self.assertEqual(rotating[0].backupCount, LOG_BACKUPS)
+                if os.name != "nt":
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                    rotating[0].doRollover()
+                    LOGGER.error("registro após rotação")
+                    rotating[0].flush()
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                    self.assertEqual(
+                        Path(f"{path}.1").stat().st_mode & 0o777,
+                        0o600,
+                    )
+            finally:
+                close_logging()
 
 
 if __name__ == "__main__":

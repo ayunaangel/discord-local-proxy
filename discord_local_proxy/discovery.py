@@ -358,6 +358,16 @@ def _first_which(names: Sequence[str], path: str | None) -> str | None:
         result = shutil.which(name, path=path)
         if result:
             return result
+        # ``discover_installations(platform=...)`` is intentionally testable for
+        # another target OS.  On Windows, shutil.which applies PATHEXT and would
+        # otherwise reject a valid extensionless Linux fixture.
+        if path:
+            for directory in path.split(os.pathsep):
+                candidate = Path(directory or os.curdir) / name
+                if candidate.is_file() and (
+                    os.name == "nt" or os.access(candidate, os.X_OK)
+                ):
+                    return str(candidate)
     return None
 
 

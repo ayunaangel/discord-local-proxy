@@ -4,12 +4,27 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $BuildDir = Join-Path $ProjectRoot "build\native"
 $PackageNative = Join-Path $ProjectRoot "discord_local_proxy\native"
 
+function Assert-Succeeded {
+    param(
+        [Parameter(Mandatory = $true)][string]$Step,
+        [Parameter(Mandatory = $true)][int]$ExitCode
+    )
+    if ($ExitCode -ne 0) {
+        throw "$Step falhou com código de saída $ExitCode."
+    }
+}
+
 cmake -S (Join-Path $ProjectRoot "native") -B $BuildDir -A x64
+Assert-Succeeded "A configuração do CMake" $LASTEXITCODE
 cmake --build $BuildDir --config Release --parallel
+Assert-Succeeded "A compilação nativa" $LASTEXITCODE
 cmake --install $BuildDir --config Release --prefix $PackageNative
+Assert-Succeeded "A instalação da biblioteca nativa" $LASTEXITCODE
 
 python -m unittest discover -s (Join-Path $ProjectRoot "tests") -v
+Assert-Succeeded "A suíte de testes" $LASTEXITCODE
 python -m PyInstaller --noconfirm (Join-Path $ProjectRoot "DiscordLocalProxy.spec")
+Assert-Succeeded "O empacotamento com PyInstaller" $LASTEXITCODE
 $GuiRuntimeCheck = Start-Process -FilePath (Join-Path $ProjectRoot "dist\DiscordLocalProxy.exe") -ArgumentList "check-gui" -Wait -PassThru
 if ($GuiRuntimeCheck.ExitCode -ne 0) {
     throw "O executável empacotado não conseguiu importar o runtime gráfico Tk."

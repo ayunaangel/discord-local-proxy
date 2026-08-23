@@ -106,6 +106,18 @@ def configure_logging(*, path: Path | None = None) -> Path:
     return target
 
 
+def close_logging() -> None:
+    """Close the active file handler so Windows can release the log file."""
+    global _file_handler
+
+    with _handler_lock:
+        if _file_handler is None:
+            return
+        LOGGER.removeHandler(_file_handler)
+        _file_handler.close()
+        _file_handler = None
+
+
 def record_session(command: str) -> None:
     LOGGER.info(
         "sessão iniciada | versão=%s | comando=%s | sistema=%s %s | python=%s | empacotado=%s",
