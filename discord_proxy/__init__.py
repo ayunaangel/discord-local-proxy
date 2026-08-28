@@ -1,4 +1,7 @@
-"""Discord Proxy — proxy e ajuste de voz aplicados só ao Discord.
+"""Discord Proxy — faz o Discord sair por outro país, e só ele.
+
+Trocar a saída muda a região do servidor de voz que o Discord entrega, que é o
+mesmo por onde passam a câmera e o compartilhamento de tela.
 
 Uso rápido:
 

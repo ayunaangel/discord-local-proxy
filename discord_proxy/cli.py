@@ -28,9 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="discord-proxy",
         description=(
-            "Abre o Discord com um proxy HTTP/SOCKS5 aplicado só a ele e, "
-            "opcionalmente, com o ajuste de voz por UDP. Sem argumentos, abre a "
-            "janela de configuração."
+            "Faz o Discord sair pela internet por outro lugar, o que muda a "
+            "região do servidor de voz — e é por ele que passam a câmera e o "
+            "compartilhamento de tela. Sem argumentos, abre a janela."
         ),
     )
     subcommands = parser.add_subparsers(dest="command")

@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from . import bridge as bridge_module
+from . import region as region_module
 from . import run as run_module
 from . import shortcut as shortcut_module
 from . import voice as voice_module
@@ -80,9 +81,13 @@ class Window:
         )
         ttk.Label(
             outer,
-            text="Proxy e ajuste de voz aplicados só ao Discord, sem mexer no sistema.",
+            text=(
+                "Faz o Discord sair por outro país — é isso que muda a região do\n"
+                "servidor de voz, por onde passam a câmera e o compartilhamento de tela."
+            ),
             style="TLabel",
             foreground=MUTED,
+            justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(2, 14))
 
         card = ttk.Frame(outer, style="Card.TFrame", padding=16)
@@ -107,13 +112,13 @@ class Window:
         entry.grid(row=1, column=1, sticky="ew", pady=6)
         ttk.Label(
             card,
-            text="socks5://usuario:senha@servidor:1080  ·  vazio = modo direto",
+            text="socks5://127.0.0.1:9150 (Tor)  ·  vazio = sai daqui mesmo",
             style="Muted.TLabel",
         ).grid(row=2, column=1, sticky="w")
 
         ttk.Checkbutton(
             card,
-            text="Ajuste de voz (UDP)",
+            text="Ajuste de voz por UDP (só se a voz estiver bloqueada na sua rede)",
             variable=self.voice,
         ).grid(row=3, column=1, sticky="w", pady=(12, 4))
 
@@ -144,10 +149,17 @@ class Window:
         self.go.pack(side="left")
         ttk.Button(buttons, text="Salvar", command=self._save).pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Testar proxy", command=self._test).pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Criar atalho", command=self._make_shortcut).pack(
+        ttk.Button(buttons, text="Onde estou saindo", command=self._where).pack(
             side="left", padx=(8, 0)
         )
-        ttk.Button(buttons, text="Remover atalho", command=self._drop_shortcut).pack(
+        ttk.Button(buttons, text="Região da call", command=self._call_region).pack(
+            side="left", padx=(8, 0)
+        )
+
+        extra = ttk.Frame(outer)
+        extra.grid(row=6, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(extra, text="Criar atalho", command=self._make_shortcut).pack(side="left")
+        ttk.Button(extra, text="Remover atalho", command=self._drop_shortcut).pack(
             side="left", padx=(8, 0)
         )
 
@@ -249,6 +261,42 @@ class Window:
             "Testando o proxy…",
             lambda: bridge_module.test_proxy(proxy).message,
         )
+
+    def _where(self) -> None:
+        """Mostra o IP e o país que o Discord vai enxergar."""
+        try:
+            proxy = parse_proxy(self.proxy_text.get())
+        except ConfigError as exc:
+            self._write(f"Proxy inválido: {exc}", error=True)
+            return
+
+        def work() -> str:
+            place = region_module.exit_address(proxy)
+            if not proxy.enabled:
+                return f"Sem proxy, o Discord te vê como: {place}"
+            return f"Com este proxy, o Discord te vê como: {place}"
+
+        self._background(
+            f"Perguntando ao {region_module.LOOKUP_HOST} de onde você parece vir…", work
+        )
+
+    def _call_region(self) -> None:
+        """Mostra para qual servidor a chamada de agora está indo."""
+        channel = self.channel_key
+
+        def work() -> str:
+            install = detect_channel(channel)
+            endpoints = region_module.voice_endpoints(install)
+            if not endpoints:
+                return (
+                    "Nenhuma chamada de voz ativa. Entre numa call ou comece um "
+                    "compartilhamento de tela e clique de novo."
+                )
+            lines = ["Servidor em uso (é por ele que passam a câmera e a tela):"]
+            lines += [f"   {endpoint}" for endpoint in endpoints]
+            return "\n".join(lines)
+
+        self._background("Procurando a chamada em andamento…", work)
 
     def _open_discord(self) -> None:
         config = self._save()

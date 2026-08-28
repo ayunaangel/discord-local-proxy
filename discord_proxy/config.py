@@ -209,8 +209,8 @@ def render_ini(config: Config) -> str:
     return (
         f"[{SECTION}]\n"
         "; O proxy decide de onde o Discord parece vir — e é isso que muda a\n"
-        "; região do servidor de voz que ele te entrega (a mesma por onde passa\n"
-        "; o vídeo do Go Live). Vazio = direto, sem trocar nada.\n"
+        "; região do servidor de voz, o mesmo por onde passam a câmera e o\n"
+        "; compartilhamento de tela. Vazio = sai daqui mesmo.\n"
         "; Exemplos: socks5://127.0.0.1:9150  |  http://usuario:senha@servidor:8080\n"
         f"proxy = {url}\n"
         "\n"

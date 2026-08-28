@@ -8,20 +8,24 @@
 
 [discord-proxy]
 
-; Vazio = modo direto: nenhum proxy, só o ajuste de voz.
-;   http://127.0.0.1:8080
-;   socks5://127.0.0.1:1080
-;   socks5://usuario:senha@servidor.exemplo:1080
-;   socks5://usuario:${MINHA_SENHA}@servidor.exemplo:1080   (lê do ambiente)
+; Por onde o Discord sai para a internet. É esta linha que muda a região do
+; servidor de voz — o mesmo por onde passam a câmera e o compartilhamento de
+; tela. Vazio = sai daqui mesmo, sem trocar nada.
+;
+;   socks5://127.0.0.1:9150                          Tor Browser aberto
+;   socks5://127.0.0.1:1080                          túnel SSH (ssh -D 1080 ...)
+;   socks5://usuario:senha@servidor.exemplo:1080     proxy com autenticação
+;   socks5://usuario:${MINHA_SENHA}@servidor:1080    senha vinda do ambiente
 proxy =
 
-; Ajuste de voz por UDP. on/off.
-voice = on
+; Coisa diferente: mexe no primeiro pacote UDP para furar filtro de DPI.
+; NÃO tem efeito sobre região. Ligue só se a voz estiver bloqueada na sua rede.
+voice = off
 
-; Pausa em milissegundos entre o preparo e o pacote real. 0 a 1000.
+; Pausa em milissegundos usada pelo ajuste de voz. 0 a 1000.
 delay = 50
 
-; Arquivo .bin opcional enviado antes do preparo. Não vem no projeto.
+; Arquivo .bin opcional enviado antes do preparo de voz. Não vem no projeto.
 packet =
 
 ; Caminho manual do executável do Discord. Vazio = detectar sozinho.

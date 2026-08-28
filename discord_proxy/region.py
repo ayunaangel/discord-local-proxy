@@ -1,9 +1,8 @@
 """Para onde a sua chamada está indo.
 
 O Discord escolhe o servidor de voz a partir de onde ele acha que você está —
-e é esse servidor que carrega tanto a voz quanto o vídeo do Go Live. Quando a
-rota da operadora até o servidor brasileiro está ruim, a transmissão corta; sair
-por um proxy em outro país faz o Discord entregar um servidor de lá.
+e é esse servidor que carrega a voz, a câmera e o compartilhamento de tela.
+Sair por um proxy em outro país faz o Discord entregar um servidor de lá.
 
 Este módulo responde às duas perguntas que sobram:
 

@@ -1,22 +1,43 @@
 # Discord Proxy
 
-Faz o Discord usar um proxy HTTP ou SOCKS5 **só ele**, e ajusta o primeiro
-pacote UDP da voz para passar por alguns filtros de rede. Não mexe em proxy do
-sistema, DNS, firewall, rotas nem certificados. Funciona no Windows, no Linux e
-— só na parte de proxy — no macOS.
+Faz o Discord — **e só ele** — sair pela internet por outro lugar. É isso que
+muda a região do servidor de voz que o Discord te entrega, e é por esse mesmo
+servidor que passam a câmera e o compartilhamento de tela.
 
-É a mesma ideia do [discord-drover](https://github.com/hdrover/discord-drover),
-com três diferenças: roda nas três plataformas, aceita SOCKS5 com usuário e
-senha, e a senha nunca aparece na linha de comando do Discord.
+Serve para quando esses recursos ficam indisponíveis ou instáveis por causa da
+sua região, e você precisa deles para trabalhar. Não mexe em proxy do sistema,
+DNS, firewall, rotas nem certificados: o resto do computador continua saindo
+normalmente.
+
+Funciona no Windows, no Linux e no macOS.
 
 ## Em um minuto
 
+Com o Tor Browser aberto (ele expõe um SOCKS5 em 9150):
+
 ```bash
-python -m discord_proxy config --proxy socks5://usuario:senha@servidor:1080
+python -m discord_proxy config --proxy socks5://127.0.0.1:9150
+```
+
+Veja de onde você passa a parecer vir:
+
+```bash
+python -m discord_proxy exit-ip
+```
+
+Feche o Discord por inteiro, inclusive o ícone da bandeja, e abra por aqui:
+
+```bash
 python -m discord_proxy run
 ```
 
-Ou abra a janela e preencha um campo só:
+Entre numa chamada e confirme para onde ela foi:
+
+```bash
+python -m discord_proxy region
+```
+
+Ou faça tudo pela janela:
 
 ```bash
 python -m discord_proxy
@@ -25,28 +46,65 @@ python -m discord_proxy
 No Linux dê dois cliques em `INICIAR-LINUX.sh`; no Windows, em
 `INICIAR-WINDOWS.cmd`.
 
+## Como isso muda a região
+
+O Discord decide qual servidor de voz te dar durante o handshake do gateway, que
+é TCP e passa pelo proxy. Ele vê o IP de saída do proxy, conclui que você está
+naquele país e devolve um servidor de lá. A partir daí, voz, câmera e Go Live
+falam com esse servidor.
+
+Duas consequências que valem saber de antemão:
+
+- **A mídia não passa pelo proxy.** O áudio e o vídeo saem do seu IP real,
+  direto para o servidor da região nova. Isto não é uma VPN e não esconde o seu
+  IP de ninguém — só muda com qual servidor você conversa.
+- **Se a decisão não for pelo IP, isto não resolve.** Se o que limita o recurso
+  for a conta e não a região de rede, trocar a saída não muda nada. O jeito de
+  saber é medir: `exit-ip` mostra o país que você passou a apresentar, `region`
+  mostra para onde a chamada foi. Se os dois mudarem e o recurso continuar
+  indisponível, a decisão não é pelo IP.
+
+## Confirmar que funcionou
+
+```bash
+python -m discord_proxy exit-ip
+```
+
+Mostra o IP e o país que o Discord enxerga. Sem proxy, é o seu IP de verdade.
+
+```bash
+python -m discord_proxy region
+```
+
+Com uma chamada em andamento, mostra o servidor em uso — algo como
+`162.159.x.x:50003 (rotterdam)`. O nome sai do DNS reverso; quando ele não vem,
+`--online` pergunta o país a um serviço externo.
+
+No Linux isso é lido do próprio kernel e não precisa de nada instalado. No
+Windows depende do componente nativo, que só está ativo com `voice = on`.
+
+Os dois comandos consultam `ipinfo.io` e só rodam quando você os chama — nada
+disso acontece sozinho ao abrir o Discord.
+
 ## Configuração
 
-Um arquivo, uma seção, cinco linhas — nenhuma obrigatória:
+Um arquivo, uma seção:
 
 ```ini
 [discord-proxy]
-proxy = socks5://usuario:senha@servidor:1080
-voice = on
-delay = 50
-packet =
-discord =
+proxy = socks5://127.0.0.1:9150
+voice = off
 ```
 
 | Chave | O que faz |
 |---|---|
-| `proxy` | URL do proxy. Vazio = modo direto (sem proxy, só o ajuste de voz). Aceita `http://` e `socks5://`, com ou sem usuário e senha. |
-| `voice` | Liga o ajuste de voz por UDP. `on` ou `off`. |
-| `delay` | Pausa em milissegundos entre o preparo e o pacote real. 0 a 1000. |
-| `packet` | Arquivo `.bin` opcional enviado antes do preparo. Não vem no projeto. |
-| `discord` | Caminho manual do executável, para quando a detecção automática não achar. |
+| `proxy` | Por onde o Discord sai. Vazio = direto, sem trocar nada. Aceita `http://` e `socks5://`, com ou sem usuário e senha. **É esta a chave que muda a região.** |
+| `voice` | Coisa diferente: mexe no primeiro pacote UDP para furar filtro de DPI. Não tem efeito nenhum sobre região. Deixe `off` a menos que a voz esteja bloqueada na sua rede. |
+| `delay` | Pausa em milissegundos usada pelo ajuste de voz. 0 a 1000. |
+| `packet` | Arquivo `.bin` opcional enviado antes do preparo de voz. Não vem no projeto. |
+| `discord` | Caminho manual do executável, se a detecção automática não achar. |
 
-Para deixar a senha fora do arquivo, use uma variável de ambiente:
+Para deixar a senha fora do arquivo:
 
 ```ini
 proxy = socks5://usuario:${MINHA_SENHA}@servidor:1080
@@ -61,64 +119,79 @@ Onde o arquivo fica:
 | macOS | `~/Library/Application Support/discord-proxy/discord-proxy.ini` |
 
 Um `discord-proxy.ini` ao lado do `Discord.exe` tem prioridade — é o modo manual
-do drover, e continua funcionando. Um `drover.ini` antigo também é lido.
+do [drover](https://github.com/hdrover/discord-drover), e um `drover.ini` antigo
+também é lido.
+
+## Que proxy usar
+
+A ferramenta não vem com servidor nenhum; o proxy é seu. Duas opções comuns:
+
+- **Tor Browser** — SOCKS5 em `127.0.0.1:9150` enquanto ele estiver aberto. Sai
+  por um país que muda sozinho a cada circuito, e o Discord costuma pedir
+  captcha em IPs de saída do Tor. Bom para testar, ruim para o dia a dia.
+- **Um servidor SOCKS5 ou HTTP seu** — uma VPS com túnel SSH
+  (`ssh -D 1080 usuario@servidor`) dá um SOCKS5 estável em `127.0.0.1:1080`,
+  com país fixo e sem captcha.
 
 ## Comandos
 
 ```bash
-python -m discord_proxy detect      # o que está instalado e se a voz é possível
+python -m discord_proxy detect      # o que está instalado
 python -m discord_proxy plan        # o que seria feito, sem abrir nada
-python -m discord_proxy test        # só testa o proxy
+python -m discord_proxy test        # só testa se o proxy responde
+python -m discord_proxy exit-ip     # de onde você parece vir
+python -m discord_proxy region      # para onde a chamada está indo
 python -m discord_proxy run         # abre o Discord
 python -m discord_proxy shortcut    # cria o atalho "Discord (Proxy)"
 python -m discord_proxy clean       # remove atalho e componente nativo
 ```
 
-Todos aceitam `--channel stable|ptb|canary` e `--config CAMINHO`.
+`run`, `plan`, `test`, `region` e `shortcut` aceitam
+`--channel stable|ptb|canary` e `--config CAMINHO`.
 
-## Como funciona
+## Como funciona por dentro
 
-**A parte fácil (chat, login, updates).** O Electron aceita
-`--proxy-server=host:porta`, mas não aceita usuário e senha, e não fala SOCKS5
-autenticado. Então o launcher sobe uma ponte HTTP em `127.0.0.1` numa porta
-sorteada, aponta o Discord para ela e é a ponte que se autentica no proxy de
-verdade. A senha nunca vira argumento, nunca entra no atalho e nunca aparece no
-log. `--disable-quic` entra junto para o Chromium não escapar por UDP.
+O Electron aceita `--proxy-server=host:porta`, mas não aceita usuário e senha e
+não fala SOCKS5 autenticado. Então o launcher sobe uma ponte HTTP em `127.0.0.1`
+numa porta sorteada, aponta o Discord para ela, e é a ponte que se autentica no
+proxy de verdade. A senha nunca vira argumento, nunca entra no atalho e nunca
+aparece no log. `--disable-quic` entra junto, senão o Chromium escapa por UDP e
+passa ao largo do proxy.
 
-**A parte difícil (voz).** A mídia de voz é UDP e não passa pelo proxy do
-Electron — isso é do protocolo do Discord, não uma limitação daqui. O que dá
-para fazer de dentro do processo é mexer no primeiro pacote: quando o Discord
-manda a descoberta de IP (74 bytes, tipo `0x0001`), o componente nativo envia
-antes o conteúdo do seu `.bin` (se houver), depois `0x00`, depois `0x01`, espera
-o `delay` e só então deixa o pacote original seguir.
+Enquanto o Discord estiver aberto com proxy, o processo do launcher precisa
+continuar vivo: a ponte morre junto com ele.
 
-Isso engana alguns filtros que decidem pelos primeiros bytes de cada fluxo. Não
-é um túnel: a voz continua saindo do seu IP, e uma rede que bloqueie todo UDP
-continua bloqueando. Para isso só uma VPN com UDP resolve.
+### O ajuste de voz (opcional, desligado por padrão)
+
+Coisa separada, para outro problema: rede que bloqueia voz por inspeção de
+pacote. Quando o Discord manda a descoberta de IP (74 bytes, tipo `0x0001`), o
+componente nativo envia antes um `0x00`, um `0x01` e, se você indicar, o
+conteúdo de um `.bin` seu. Isso engana alguns filtros que decidem pelos
+primeiros bytes do fluxo. Não cria túnel e não muda região.
 
 | Plataforma | Componente | Como entra |
 |---|---|---|
-| Windows | `version.dll` | Fica ao lado do `Discord.exe` (carregamento lateral) e troca os ponteiros de `sendto`/`WSASendTo` na tabela de imports do processo. |
-| Linux | `libdiscordproxy.so` | `LD_PRELOAD` apenas no processo que o launcher abre. |
-| macOS | — | O app é assinado e o sistema ignora bibliotecas injetadas. Só o proxy TCP funciona. |
-| Flatpak / Snap | — | O sandbox recusa bibliotecas externas. Só o proxy TCP funciona. |
+| Windows | `version.dll` | Ao lado do `Discord.exe` (carregamento lateral), trocando os ponteiros de `sendto`/`WSASendTo` na tabela de imports. |
+| Linux | `libdiscordproxy.so` | `LD_PRELOAD` só no processo que o launcher abre. |
+| macOS | — | O app é assinado e o sistema ignora bibliotecas injetadas. Só o proxy funciona. |
+| Flatpak / Snap | — | O sandbox recusa bibliotecas externas. Só o proxy funciona. |
 
 O `version.dll` nunca sobrescreve um `version.dll` que não seja nosso: a
-instalação guarda o hash do arquivo e a remoção só apaga se bater. Alguns
-antivírus reclamam de qualquer DLL ao lado de um `.exe` — confira o hash do
-release e o código antes de liberar.
+instalação guarda o hash e a remoção só apaga se bater, e a arquitetura do PE é
+conferida antes (uma DLL de arquitetura errada impediria o Discord de abrir).
+Alguns antivírus reclamam de qualquer DLL ao lado de um `.exe` — confira o hash
+do release e o código antes de liberar.
 
 ## Compilar
+
+Só é necessário se você for usar o ajuste de voz.
 
 ```bash
 python build.py
 ```
 
-Só isso. Precisa de `gcc` ou `clang`; nada de CMake, nada baixado durante o
-build.
-
-Para gerar o `version.dll` do Windows a partir do Linux, há dois caminhos. O
-MinGW do sistema:
+Precisa de `gcc` ou `clang`; nada de CMake, nada baixado durante o build. Para
+gerar o `version.dll` do Windows a partir do Linux:
 
 ```bash
 sudo dnf install mingw64-gcc            # Fedora
@@ -134,7 +207,7 @@ python -m pip install ziglang
 python build.py --all
 ```
 
-Para montar o pacote da página de releases (precisa do PyInstaller):
+Pacote para a página de releases (precisa do PyInstaller):
 
 ```bash
 python -m pip install pyinstaller
@@ -147,13 +220,9 @@ Testes:
 python -m unittest discover -s tests -t .
 ```
 
-Os testes da ponte sobem proxies HTTP e SOCKS5 de mentira e conferem o
-handshake de verdade. Os testes do componente nativo rodam sozinhos assim que
-existir um `build/libdiscordproxy.so`.
-
 ## O que isto não é
 
-- Não é VPN. O IP da voz continua sendo o seu.
+- Não é VPN. A voz, a câmera e a tela saem do seu IP real.
 - Não desliga verificação de TLS, não mexe no `app.asar`, não injeta
   certificado e não contém código do Discord.
 - Não precisa de administrador, root nem driver. Tudo é por usuário e reversível
