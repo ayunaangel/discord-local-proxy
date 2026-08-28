@@ -292,7 +292,7 @@ class Window:
                     "Nenhuma chamada de voz ativa. Entre numa call ou comece um "
                     "compartilhamento de tela e clique de novo."
                 )
-            lines = ["Servidor em uso (é por ele que passam a câmera e a tela):"]
+            lines = ["Servidor em uso (por ele passam a câmera e a tela):"]
             lines += [f"   {endpoint}" for endpoint in endpoints]
             return "\n".join(lines)
 

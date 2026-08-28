@@ -195,8 +195,8 @@ def _region(arguments: argparse.Namespace) -> int:
     if not endpoints:
         print("Nenhuma chamada de voz ativa no momento.")
         print(
-            "Entre numa chamada (ou comece um Go Live) e rode de novo — é durante a\n"
-            "chamada que dá para ver o servidor em uso."
+            "Entre numa chamada ou comece um compartilhamento de tela e rode de\n"
+            "novo — é durante a chamada que dá para ver o servidor em uso."
         )
         if os.name == "nt":
             print(
@@ -205,7 +205,7 @@ def _region(arguments: argparse.Namespace) -> int:
             )
         return 1
 
-    print("Servidor de voz em uso (é por ele que passam a câmera e o Go Live):")
+    print("Servidor em uso (é por ele que passam a câmera e o compartilhamento de tela):")
     for endpoint in endpoints:
         print(f"  {endpoint}")
         if arguments.online:
