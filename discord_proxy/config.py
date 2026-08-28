@@ -88,11 +88,27 @@ class Proxy:
 @dataclass(frozen=True)
 class Config:
     proxy: Proxy = Proxy()
+    use_tor: bool = False
+    country: str = ""
+    tor_path: Path | None = None
     voice: bool = False
     delay_ms: int = 50
     packet: Path | None = None
     executable: Path | None = None
     path: Path | None = None
+
+    @property
+    def has_exit(self) -> bool:
+        """Vai sair por outro lugar? (por Tor ou por um proxy informado)"""
+        return self.use_tor or self.proxy.enabled
+
+    @property
+    def exit_label(self) -> str:
+        if self.use_tor:
+            from .tor import country_label
+
+            return f"Tor · {country_label(self.country)}"
+        return self.proxy.label
 
     def as_ini(self) -> str:
         return render_ini(self)
@@ -177,7 +193,11 @@ def load(path: Path, *, environ: Mapping[str, str] | None = None) -> Config:
     else:
         section = parser[configparser.DEFAULTSECT]
 
-    proxy = parse_proxy(section.get("proxy", ""), environ=environ)
+    proxy_text = section.get("proxy", "").strip()
+    use_tor = proxy_text.lower() in {"tor", "tor:", "tor://"}
+    proxy = Proxy() if use_tor else parse_proxy(proxy_text, environ=environ)
+    country = _validate_country(section.get("pais", section.get("country", "")))
+    tor_path = _resolve_optional_path(section.get("tor", ""), path.parent)
     voice = parse_bool(section.get("voice", "off"))
     delay_ms = _parse_delay(section.get("delay", "50"))
     packet = _resolve_optional_path(section.get("packet", ""), path.parent)
@@ -190,6 +210,9 @@ def load(path: Path, *, environ: Mapping[str, str] | None = None) -> Config:
 
     return Config(
         proxy=proxy,
+        use_tor=use_tor,
+        country=country,
+        tor_path=tor_path,
         voice=voice,
         delay_ms=delay_ms,
         packet=packet,
@@ -205,14 +228,24 @@ def load_or_default(path: Path | None, *, environ: Mapping[str, str] | None = No
 
 
 def render_ini(config: Config) -> str:
-    url = config.proxy.url
+    url = "tor" if config.use_tor else config.proxy.url
     return (
         f"[{SECTION}]\n"
-        "; O proxy decide de onde o Discord parece vir — e é isso que muda a\n"
-        "; região do servidor de voz, o mesmo por onde passam a câmera e o\n"
-        "; compartilhamento de tela. Vazio = sai daqui mesmo.\n"
-        "; Exemplos: socks5://127.0.0.1:9150  |  http://usuario:senha@servidor:8080\n"
+        "; De onde o Discord vai sair para a internet. É isto que muda a região\n"
+        "; do servidor de voz — o mesmo por onde passam a câmera e a tela.\n"
+        ";\n"
+        ";   (vazio)                            sai daqui mesmo, sem trocar nada\n"
+        ";   tor                                usa o Tor sozinho, sem abrir nada\n"
+        ";   socks5://127.0.0.1:1080            um proxy seu (ex.: ssh -D 1080)\n"
+        ";   http://usuario:senha@servidor:8080 proxy com usuário e senha\n"
         f"proxy = {url}\n"
+        "\n"
+        "; País de saída, só quando proxy = tor. Vazio = o Tor escolhe.\n"
+        "; Exemplos: us, nl, de, fr, gb, es, se, ca\n"
+        f"pais = {config.country}\n"
+        "\n"
+        "; Pasta do Tor Browser, se ele não estiver num lugar comum.\n"
+        f"tor = {config.tor_path or ''}\n"
         "\n"
         "; Ajuste de voz por UDP (contra filtro de DPI). Não tem efeito sobre\n"
         "; região; deixe off a menos que a voz esteja bloqueada na sua rede.\n"
@@ -265,6 +298,17 @@ def validate_packet(path: Path) -> Path:
     if info.st_size > MAX_PACKET_BYTES:
         raise ConfigError(f"o pacote inicial passa de {MAX_PACKET_BYTES} bytes: {path}")
     return path.resolve(strict=True)
+
+
+def _validate_country(text: str) -> str:
+    country = (text or "").strip().lower()
+    if not country:
+        return ""
+    if not re.fullmatch(r"[a-z]{2}", country):
+        raise ConfigError(
+            f"país inválido: {text!r} — use o código de duas letras, como us, nl ou de"
+        )
+    return country
 
 
 def _parse_delay(text: str) -> int:

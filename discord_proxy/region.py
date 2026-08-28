@@ -435,7 +435,11 @@ def _first(body: dict, *names: str) -> str:
 
 
 def _place_from(body: dict) -> Place:
-    """Cada serviço nomeia os campos do seu jeito; aceitamos os três."""
+    """Cada serviço nomeia os campos do seu jeito; aceitamos os três.
+
+    Uma resposta sem IP não serve para nada: é melhor tratar como falha e
+    tentar o próximo serviço do que devolver "local desconhecido".
+    """
     place = Place(
         address=_first(body, "ip", "IP", "query"),
         country=_first(body, "country", "country_iso", "countryCode"),
@@ -443,6 +447,8 @@ def _place_from(body: dict) -> Place:
         city=_first(body, "city"),
         org=_first(body, "org", "asn_org", "isp"),
     )
+    if not place.address:
+        raise ValueError("a resposta não trouxe o endereço IP")
     if body.get("IsTor") and not place.country:
         return Place(address=place.address, country="saída do Tor", org=place.org)
     return place

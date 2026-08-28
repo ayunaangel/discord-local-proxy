@@ -280,3 +280,37 @@ class MediaServerNames(unittest.TestCase):
         for host in ("cdn.discordapp.com", "gateway.discord.gg", "discord.com", "media.discordapp.net"):
             with self.subTest(host=host):
                 self.assertFalse(region_module._is_media_server(host))
+
+
+class LookupAnswers(unittest.TestCase):
+    """Respostas de cada serviço de consulta, e o que fazer com as ruins."""
+
+    def test_ipinfo_shape(self):
+        place = region_module._place_from(
+            {"ip": "1.2.3.4", "city": "Amsterdam", "region": "North Holland", "country": "NL"}
+        )
+        self.assertEqual(place.address, "1.2.3.4")
+        self.assertIn("Amsterdam", str(place))
+
+    def test_ifconfig_shape(self):
+        place = region_module._place_from(
+            {
+                "ip": "192.42.116.45",
+                "country": "The Netherlands",
+                "country_iso": "NL",
+                "asn_org": "SURF B.V.",
+            }
+        )
+        self.assertEqual(place.address, "192.42.116.45")
+        self.assertIn("The Netherlands", str(place))
+        self.assertIn("SURF", str(place))
+
+    def test_tor_check_shape(self):
+        place = region_module._place_from({"IsTor": True, "IP": "192.42.116.45"})
+        self.assertEqual(place.address, "192.42.116.45")
+        self.assertIn("saída do Tor", str(place))
+
+    def test_an_answer_without_an_ip_is_a_failure(self):
+        for body in ({}, {"error": "rate limited"}, {"city": "Lisboa"}):
+            with self.subTest(body=body), self.assertRaises(ValueError):
+                region_module._place_from(body)

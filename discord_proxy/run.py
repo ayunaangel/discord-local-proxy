@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 from . import bridge as bridge_module
+from . import tor as tor_module
 from . import voice as voice_module
+from . import config as _proxy_module
 from .config import CONFIG_NAME, Config, load_or_default
 from .discord import Install, detect_channel, install_for_executable, running_processes
 
@@ -98,9 +100,9 @@ def build_plan(
     install = resolve_install(channel, config, environ=source)
 
     command = list(install.command)
-    if config.proxy.enabled:
+    if config.has_exit:
         if not bridge_url:
-            raise LaunchError("há proxy configurado, mas a ponte local não foi iniciada")
+            raise LaunchError("há uma saída configurada, mas a ponte local não foi iniciada")
         command += [
             f"--proxy-server={bridge_url}",
             "--proxy-bypass-list=<local>",
@@ -140,6 +142,7 @@ def launch(
     require_closed: bool = True,
     environ: Mapping[str, str] | None = None,
     on_started: Callable[[Result], None] | None = None,
+    on_step: Callable[[str], None] | None = None,
 ) -> Result:
     source = dict(os.environ if environ is None else environ)
     probe = detect_channel(channel, environ=source)
@@ -155,17 +158,35 @@ def launch(
         )
 
     bridge: bridge_module.Bridge | None = None
+    tor_process: tor_module.TorProcess | None = None
     try:
         url: str | None = None
-        if config.proxy.enabled:
-            check = bridge_module.test_proxy(config.proxy)
+        if config.has_exit:
+            proxy = config.proxy
+            if config.use_tor:
+                _say(on_step, "Ligando o Tor… (na primeira vez costuma demorar)")
+                tor_process = tor_module.start(
+                    country=config.country,
+                    extra_path=config.tor_path,
+                    on_progress=lambda pct, etapa: _say(
+                        on_step, f"Tor {pct}%{(' — ' + etapa) if etapa else ''}"
+                    ),
+                )
+                proxy = _proxy_module.parse_proxy(tor_process.proxy_url)
+                _say(on_step, "Tor pronto.")
+
+            _say(on_step, "Testando a saída…")
+            check = bridge_module.test_proxy(proxy)
             if not check.ok:
-                raise LaunchError(f"o proxy falhou, então o Discord não foi aberto: {check.message}")
+                raise LaunchError(
+                    f"a saída falhou, então o Discord não foi aberto: {check.message}"
+                )
             journal = voice_module.data_root(source) / "bridge-targets.txt"
             journal.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             journal.unlink(missing_ok=True)
-            bridge = bridge_module.Bridge(config.proxy, journal=journal).start()
+            bridge = bridge_module.Bridge(proxy, journal=journal).start()
             url = bridge.url
+            _say(on_step, "Abrindo o Discord…")
 
         plan = build_plan(
             channel, explicit_config=path, bridge_url=url, environ=source
@@ -182,7 +203,7 @@ def launch(
         started = Result(
             pid=process.pid,
             exit_code=None,
-            proxy_used=config.proxy.enabled,
+            proxy_used=config.has_exit,
             voice_used=plan.shim is not None,
             note=plan.voice_note,
         )
@@ -193,7 +214,7 @@ def launch(
 
         # Enquanto houver proxy, este processo precisa continuar vivo: a ponte
         # local morre junto com ele.
-        should_wait = config.proxy.enabled if wait is None else wait
+        should_wait = config.has_exit if wait is None else wait
         exit_code = _wait_for_discord(process, plan.install) if should_wait else None
         return replace(started, exit_code=exit_code)
     except OSError as exc:
@@ -201,6 +222,13 @@ def launch(
     finally:
         if bridge is not None:
             bridge.stop()
+        if tor_process is not None:
+            tor_process.stop()
+
+
+def _say(on_step: Callable[[str], None] | None, message: str) -> None:
+    if on_step is not None:
+        on_step(message)
 
 
 def _environment(
@@ -260,7 +288,7 @@ def describe(plan: Plan) -> str:
         f"Canal .......: {plan.install.label} ({plan.install.kind})",
         f"Executável ..: {plan.install.executable or plan.install.command[0]}",
         f"Config ......: {plan.config.path or '(padrão embutido)'}",
-        f"Proxy .......: {plan.config.proxy.label}",
+        f"Saída .......: {plan.config.exit_label}",
     ]
     if plan.shim is not None:
         lines.append(f"Voz .........: ativa via {plan.shim}")

@@ -10,6 +10,8 @@ from pathlib import Path
 
 from . import bridge as bridge_module
 from . import region as region_module
+from . import report as report_module
+from . import tor as tor_module
 from . import run as run_module
 from . import shortcut as shortcut_module
 from . import voice as voice_module
@@ -86,6 +88,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--problemas", action="store_true", help="só os túneis que não terminaram bem"
     )
 
+    relatorio = subcommands.add_parser(
+        "relatorio", help="gera um .txt com o diagnóstico, para mandar a quem for ajudar"
+    )
+    relatorio.add_argument("--pasta", type=Path, help="onde salvar (padrão: Área de Trabalho)")
+    relatorio.add_argument(
+        "--mostrar", action="store_true", help="também imprime o conteúdo na tela"
+    )
+
+    tor_command = subcommands.add_parser("tor", help="testa o Tor embutido sozinho")
+    tor_command.add_argument("--pais", default="", help="país de saída (us, nl, de…)")
+
     subcommands.add_parser("clean", help="remove atalhos e o componente nativo instalado")
     return parser
 
@@ -130,6 +143,12 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         print("\nComando:")
         print("  " + " ".join(plan.command))
         return 0
+
+    if command == "relatorio":
+        return _relatorio(arguments)
+
+    if command == "tor":
+        return _tor(arguments)
 
     if command == "log":
         return _log(arguments)
@@ -207,6 +226,52 @@ def _config(arguments: argparse.Namespace) -> int:
     else:
         print(f"# {path}")
         print(config.as_ini(), end="")
+    return 0
+
+
+def _relatorio(arguments: argparse.Namespace) -> int:
+    texto = report_module.build()
+    caminho = report_module.save(arguments.pasta)
+    if arguments.mostrar:
+        print(texto)
+        print()
+    print(f"Relatório salvo em: {caminho}")
+    print("Envie este arquivo para quem for te ajudar — ele não contém sua senha.")
+    return 0
+
+
+def _tor(arguments: argparse.Namespace) -> int:
+    try:
+        programa = tor_module.find_tor()
+    except tor_module.TorError as exc:
+        print(f"erro: {exc}", file=sys.stderr)
+        print("\nProcurei em:", file=sys.stderr)
+        for lugar in tor_module.search_locations():
+            print(f"  {lugar}", file=sys.stderr)
+        return 1
+    print(f"Tor encontrado: {programa.executable}")
+    pais = arguments.pais.strip().lower()
+    print(f"Ligando com saída em: {tor_module.country_label(pais)}…")
+
+    ultimo = [-1]
+
+    def progresso(pct: int, etapa: str) -> None:
+        if pct - ultimo[0] >= 20 or pct == 100:
+            ultimo[0] = pct
+            print(f"  {pct}% {etapa}")
+
+    try:
+        processo = tor_module.start(country=pais, on_progress=progresso)
+    except tor_module.TorError as exc:
+        print(f"erro: {exc}", file=sys.stderr)
+        return 1
+    try:
+        print(f"Pronto em 127.0.0.1:{processo.port}")
+        lugar = region_module.exit_address(parse_proxy(processo.proxy_url))
+        print(f"Saindo como: {lugar}")
+    finally:
+        processo.stop()
+        print("Tor encerrado.")
     return 0
 
 
