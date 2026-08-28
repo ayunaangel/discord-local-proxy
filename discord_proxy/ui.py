@@ -358,7 +358,7 @@ def _delay(text: str) -> int:
 
 def run_ui() -> int:
     try:
-        import tkinter  # noqa: F401
+        __import__("tkinter")
     except ImportError:
         print(
             "A janela precisa do Tk. No Fedora: sudo dnf install python3-tkinter · "

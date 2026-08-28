@@ -220,7 +220,7 @@ def _detect_linux(spec: Channel, env: Mapping[str, str]) -> Install | None:
             command=("flatpak", "run", spec.flatpak_id),
             executable=None,
         )
-    if _snap_installed(spec.snap_name, env):
+    if _snap_installed(spec.snap_name):
         return Install(
             channel=spec.key,
             label=spec.label,
@@ -286,7 +286,7 @@ def _flatpak_installed(app_id: str, env: Mapping[str, str]) -> bool:
     return any(root.is_dir() for root in roots)
 
 
-def _snap_installed(name: str, env: Mapping[str, str]) -> bool:
+def _snap_installed(name: str) -> bool:
     return Path(f"/snap/{name}/current").exists() and _executable_file(Path(f"/snap/bin/{name}"))
 
 

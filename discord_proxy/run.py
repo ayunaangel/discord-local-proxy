@@ -46,11 +46,16 @@ class Result:
     note: str = ""
 
 
-def config_path(install: Install | None = None, *, explicit: Path | None = None) -> Path:
+def config_path(
+    install: Install | None = None,
+    *,
+    explicit: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> Path:
     """Onde procurar o INI, do mais específico para o mais geral."""
     if explicit is not None:
         return Path(explicit).expanduser().absolute()
-    from_env = os.environ.get(ENV_INI)
+    from_env = (os.environ if environ is None else environ).get(ENV_INI)
     if from_env:
         return Path(from_env).expanduser().absolute()
     if install is not None and install.directory is not None:
@@ -87,7 +92,7 @@ def build_plan(
 ) -> Plan:
     source = dict(os.environ if environ is None else environ)
     probe = detect_channel(channel, environ=source)
-    path = config_path(probe, explicit=explicit_config)
+    path = config_path(probe, explicit=explicit_config, environ=source)
     config = load_or_default(path, environ=source)
     install = resolve_install(channel, config, environ=source)
 
@@ -115,7 +120,7 @@ def build_plan(
                 # ajuste de voz. Avisar e seguir é melhor que não abrir nada.
                 note = str(exc)
 
-    environment = _environment(source, config, shim, install, path)
+    environment = _environment(source, config, shim, path)
     return Plan(
         install=install,
         config=config,
@@ -136,7 +141,7 @@ def launch(
 ) -> Result:
     source = dict(os.environ if environ is None else environ)
     probe = detect_channel(channel, environ=source)
-    path = config_path(probe, explicit=explicit_config)
+    path = config_path(probe, explicit=explicit_config, environ=source)
     config = load_or_default(path, environ=source)
     install = resolve_install(channel, config, environ=source)
 
@@ -191,7 +196,6 @@ def _environment(
     source: Mapping[str, str],
     config: Config,
     shim: Path | None,
-    install: Install,
     path: Path,
 ) -> dict[str, str]:
     blocked = {

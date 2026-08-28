@@ -127,6 +127,7 @@ def remove_shared_shim() -> bool:
 
 def _sideload(source: Path, destination: Path) -> None:
     """Nunca sobrescreve um `version.dll` que não seja nosso."""
+    _check_architecture(source, destination.parent)
     receipt = destination.with_name(destination.name + RECEIPT_SUFFIX)
     digest = _sha256(source)
     if _lexists(destination):
@@ -143,6 +144,45 @@ def _sideload(source: Path, destination: Path) -> None:
             )
     _copy_atomic(source, destination, mode=0o600)
     _write_receipt(receipt, digest)
+
+
+# Máquinas do cabeçalho PE que nos interessam.
+_MACHINES = {0x8664: "x64", 0x014C: "x86", 0xAA64: "arm64"}
+
+
+def _pe_machine(path: Path) -> int | None:
+    """Lê a arquitetura de um .exe/.dll sem depender de ferramenta externa."""
+    try:
+        with path.open("rb") as handle:
+            if handle.read(2) != b"MZ":
+                return None
+            handle.seek(0x3C)
+            offset = int.from_bytes(handle.read(4), "little")
+            handle.seek(offset)
+            if handle.read(4) != b"PE\x00\x00":
+                return None
+            return int.from_bytes(handle.read(2), "little")
+    except OSError:
+        return None
+
+
+def _check_architecture(shim: Path, discord_directory: Path) -> None:
+    """Uma DLL da arquitetura errada impede o Discord de abrir. Melhor recusar."""
+    executables = sorted(discord_directory.glob("*.exe"))
+    if not executables:
+        return
+    shim_machine = _pe_machine(shim)
+    if shim_machine is None:
+        return
+    for executable in executables:
+        machine = _pe_machine(executable)
+        if machine is None or machine == shim_machine:
+            continue
+        raise VoiceError(
+            f"o componente é {_MACHINES.get(shim_machine, hex(shim_machine))} e o "
+            f"{executable.name} é {_MACHINES.get(machine, hex(machine))}; "
+            "instalar assim impediria o Discord de abrir"
+        )
 
 
 def _copy_atomic(source: Path, destination: Path, *, mode: int) -> None:
@@ -180,7 +220,7 @@ def _read_receipt(path: Path) -> str:
         info = path.lstat()
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_size > 128:
             return ""
-        value = path.read_text(encoding="ascii").strip().lower()
+        value = path.read_text(encoding="ascii", errors="replace").strip().lower()
     except OSError:
         return ""
     return value if len(value) == 64 and all(c in "0123456789abcdef" for c in value) else ""

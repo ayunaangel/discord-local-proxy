@@ -149,7 +149,7 @@ def parse_proxy(text: str, *, environ: Mapping[str, str] | None = None) -> Proxy
     return Proxy(scheme=scheme, host=host, port=port, user=user, password=password)
 
 
-def parse_bool(text: str, *, default: bool = True) -> bool:
+def parse_bool(text: str) -> bool:
     value = (text or "").strip().casefold()
     if value in _TRUE:
         return True
