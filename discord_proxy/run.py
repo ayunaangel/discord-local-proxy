@@ -161,7 +161,7 @@ def launch(
             check = bridge_module.test_proxy(config.proxy)
             if not check.ok:
                 raise LaunchError(f"o proxy falhou, então o Discord não foi aberto: {check.message}")
-            journal = voice_module.data_root() / "bridge-targets.txt"
+            journal = voice_module.data_root(source) / "bridge-targets.txt"
             journal.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             journal.unlink(missing_ok=True)
             bridge = bridge_module.Bridge(config.proxy, journal=journal).start()
@@ -229,7 +229,7 @@ def _environment(
     environment[ENV_INI] = str(path)
     if shim is not None:
         # Onde o componente anota o servidor de voz em uso, para o `region`.
-        state = voice_module.data_root() / "voice-endpoint.txt"
+        state = voice_module.data_root(source) / "voice-endpoint.txt"
         state.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         state.unlink(missing_ok=True)
         environment[ENV_STATE] = str(state)

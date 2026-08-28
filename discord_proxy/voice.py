@@ -20,6 +20,7 @@ import stat
 import sys
 import tempfile
 from pathlib import Path
+from typing import Mapping
 
 from .discord import Install
 
@@ -32,14 +33,20 @@ class VoiceError(RuntimeError):
     """O componente nativo não existe ou não pode ser instalado com segurança."""
 
 
-def data_root() -> Path:
-    """Pasta por usuário onde guardamos o componente e a configuração."""
+def data_root(environ: "Mapping[str, str] | None" = None) -> Path:
+    """Pasta por usuário onde guardamos o componente e a configuração.
+
+    Aceita um ambiente explícito para que um teste (ou um launch com HOME
+    próprio) não escreva na pasta real de quem está usando o programa.
+    """
+    env = os.environ if environ is None else environ
+    home = Path(env.get("HOME") or Path.home())
     if os.name == "nt":
-        base = os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
+        base = env.get("LOCALAPPDATA") or (home / "AppData" / "Local")
         return Path(base) / "discord-proxy"
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "discord-proxy"
-    base = os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
+        return home / "Library" / "Application Support" / "discord-proxy"
+    base = env.get("XDG_DATA_HOME") or (home / ".local" / "share")
     return Path(base) / "discord-proxy"
 
 

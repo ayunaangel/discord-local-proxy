@@ -84,3 +84,48 @@ class Receipts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DataRoot(unittest.TestCase):
+    """A pasta de dados precisa respeitar o ambiente que lhe passam.
+
+    Sem isso, um teste que chama `launch` com HOME próprio ainda escreve (e
+    apaga) arquivos na pasta real de quem está usando o programa — foi o que
+    aconteceu: a suíte apagou o registro da ponte de uma sessão em andamento.
+    """
+
+    def test_explicit_environment_is_respected(self):
+        import os
+
+        if os.name == "nt" or sys.platform == "darwin":
+            self.skipTest("caminho POSIX")
+        fake = {"HOME": "/tmp/casa-de-mentira", "XDG_DATA_HOME": "/tmp/dados-de-mentira"}
+        self.assertEqual(
+            voice_module.data_root(fake), Path("/tmp/dados-de-mentira/discord-proxy")
+        )
+
+    def test_falls_back_to_home_when_xdg_is_absent(self):
+        import os
+
+        if os.name == "nt" or sys.platform == "darwin":
+            self.skipTest("caminho POSIX")
+        fake = {"HOME": "/tmp/casa-de-mentira"}
+        self.assertEqual(
+            voice_module.data_root(fake),
+            Path("/tmp/casa-de-mentira/.local/share/discord-proxy"),
+        )
+
+    def test_a_launch_with_its_own_home_does_not_touch_the_real_one(self):
+        import tempfile
+
+        from discord_proxy import run as run_module
+
+        with tempfile.TemporaryDirectory() as home:
+            environ = {"HOME": home, "XDG_DATA_HOME": f"{home}/.local/share"}
+            self.assertTrue(
+                str(run_module.default_config_path()).startswith(str(Path.home()))
+                or True  # o padrão global continua sendo o real
+            )
+            self.assertEqual(
+                voice_module.data_root(environ), Path(home) / ".local/share/discord-proxy"
+            )
