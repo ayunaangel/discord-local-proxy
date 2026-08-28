@@ -86,8 +86,9 @@ python -m discord_proxy region
 ```
 
 Com uma chamada em andamento, mostra o servidor em uso — algo como
-`rotterdam1234.discord.media:443 — rotterdam`. A região sai do próprio nome do
-servidor.
+`c-iad10-b19ce4e8.discord.media:2053 — Washington, EUA (US East)`. A região sai
+do próprio nome do servidor: o Discord usa o código IATA do aeroporto mais
+próximo do datacenter (`gru` é São Paulo, `iad` é a Virgínia, `ams` é Amsterdã).
 
 De onde vem essa informação, em ordem:
 

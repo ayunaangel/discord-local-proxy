@@ -33,9 +33,46 @@ from .voice import data_root
 STATE_NAME = "voice-endpoint.txt"
 JOURNAL_NAME = "bridge-targets.txt"
 # Nome dos servidores de mídia do Discord — voz, câmera e tela passam por eles.
-# Um servidor de verdade é `<região><número>.discord.media`; nomes sem número
-# no fim são outra coisa (o `latency.discord.media` só mede latência).
+# Dois formatos aparecem na prática:
+#   c-iad10-b19ce4e8.discord.media   (atual: c-<aeroporto><nº>-<hash>)
+#   rotterdam1234.discord.media      (antigo: <cidade><nº>)
+# O `latency.discord.media` não é servidor de mídia, só mede latência.
 MEDIA_SUFFIX = ".discord.media"
+
+# Código IATA do aeroporto mais próximo do datacenter.
+AIRPORTS = {
+    "ams": "Amsterdã, Holanda",
+    "arn": "Estocolmo, Suécia",
+    "atl": "Atlanta, EUA",
+    "bog": "Bogotá, Colômbia",
+    "bom": "Mumbai, Índia",
+    "cdg": "Paris, França",
+    "dfw": "Dallas, EUA",
+    "dub": "Dublin, Irlanda",
+    "dxb": "Dubai, Emirados",
+    "eze": "Buenos Aires, Argentina",
+    "fra": "Frankfurt, Alemanha",
+    "gru": "São Paulo, Brasil",
+    "hel": "Helsinque, Finlândia",
+    "hkg": "Hong Kong",
+    "iad": "Washington, EUA (US East)",
+    "icn": "Seul, Coreia do Sul",
+    "jnb": "Joanesburgo, África do Sul",
+    "lax": "Los Angeles, EUA",
+    "lhr": "Londres, Reino Unido",
+    "mad": "Madri, Espanha",
+    "mex": "Cidade do México",
+    "mia": "Miami, EUA",
+    "nrt": "Tóquio, Japão",
+    "ord": "Chicago, EUA",
+    "scl": "Santiago, Chile",
+    "sea": "Seattle, EUA",
+    "sin": "Singapura",
+    "sjc": "San Jose, EUA (US West)",
+    "syd": "Sydney, Austrália",
+    "waw": "Varsóvia, Polônia",
+    "yyz": "Toronto, Canadá",
+}
 # O Chromium também fala UDP em 443 (QUIC) e 80; isso não é voz.
 WEB_PORTS = frozenset({80, 443, 8080})
 # Faixa que o Discord usa para os servidores de voz.
@@ -65,13 +102,25 @@ class Endpoint:
     hostname: str = ""
 
     @property
-    def region(self) -> str:
-        """`brazil11111.discord.media` -> `brazil`."""
+    def code(self) -> str:
+        """O identificador cru da região: `iad`, `gru`, `brazil`…"""
         if not self.hostname:
             return ""
-        label = self.hostname.split(".", 1)[0]
-        name = label.rstrip("0123456789")
-        return name or label
+        label = self.hostname.split(".", 1)[0].lower()
+        parts = label.split("-")
+        # Formato atual: c-iad10-b19ce4e8 -> o meio é o que interessa.
+        if len(parts) >= 3 and parts[0] == "c":
+            return parts[1].rstrip("0123456789") or parts[1]
+        # Formato antigo: rotterdam1234 -> tira o número do fim.
+        return label.rstrip("0123456789") or label
+
+    @property
+    def region(self) -> str:
+        """O nome legível da região, quando dá para saber."""
+        code = self.code
+        if not code:
+            return ""
+        return AIRPORTS.get(code, code)
 
     def __str__(self) -> str:
         where = self.region or "região desconhecida"
@@ -128,12 +177,17 @@ def voice_endpoints(install: Install | None = None, *, resolve: bool = True) -> 
 
 
 def _is_media_server(host: str) -> bool:
-    """`rotterdam1234.discord.media` sim; `latency.discord.media` não."""
+    """`c-iad10-b19ce4e8` e `rotterdam1234` sim; `latency` não."""
     host = host.lower()
     if not host.endswith(MEDIA_SUFFIX):
         return False
     label = host[: -len(MEDIA_SUFFIX)].rsplit(".", 1)[-1]
-    return bool(label) and label[-1].isdigit()
+    if not label:
+        return False
+    parts = label.split("-")
+    if len(parts) >= 3 and parts[0] == "c":
+        return any(char.isdigit() for char in parts[1])
+    return label[-1].isdigit()
 
 
 def _from_journal() -> list[Endpoint]:

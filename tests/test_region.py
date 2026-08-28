@@ -28,12 +28,24 @@ time.sleep(int(sys.argv[1]))
 
 
 class Naming(unittest.TestCase):
-    def test_region_comes_from_the_hostname(self):
+    def test_current_format_uses_the_airport_code(self):
+        # Foi o que o Discord entregou numa chamada real de teste.
+        endpoint = Endpoint("", 2053, "c-iad10-b19ce4e8.discord.media")
+        self.assertEqual(endpoint.code, "iad")
+        self.assertIn("Washington", endpoint.region)
+
+    def test_brazilian_datacenter(self):
+        self.assertIn("São Paulo", Endpoint("", 443, "c-gru05-4f2c1a9b.discord.media").region)
+
+    def test_unknown_airport_falls_back_to_the_code(self):
+        self.assertEqual(Endpoint("", 443, "c-xyz01-abcdef12.discord.media").region, "xyz")
+
+    def test_old_format_still_works(self):
         endpoint = Endpoint("1.2.3.4", 50001, "brazil11111.discord.media")
-        self.assertEqual(endpoint.region, "brazil")
+        self.assertEqual(endpoint.code, "brazil")
 
     def test_region_without_digits(self):
-        self.assertEqual(Endpoint("1.2.3.4", 1, "rotterdam.discord.media").region, "rotterdam")
+        self.assertEqual(Endpoint("1.2.3.4", 1, "rotterdam.discord.media").code, "rotterdam")
 
     def test_no_hostname_means_no_region(self):
         endpoint = Endpoint("1.2.3.4", 50001)
@@ -41,7 +53,7 @@ class Naming(unittest.TestCase):
         self.assertIn("região desconhecida", str(endpoint))
 
     def test_text_shows_the_region(self):
-        self.assertIn("us-east", str(Endpoint("1.2.3.4", 50001, "us-east4242.discord.media")))
+        self.assertIn("Washington", str(Endpoint("", 2053, "c-iad10-b19ce4e8.discord.media")))
 
 
 class ProcAddresses(unittest.TestCase):
@@ -204,14 +216,14 @@ class BridgeJournal(unittest.TestCase):
         found = region_module.voice_endpoints()
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].hostname, "rotterdam1234.discord.media")
-        self.assertEqual(found[0].region, "rotterdam")
+        self.assertEqual(found[0].code, "rotterdam")
 
     def test_most_recent_first(self):
         self.journal.write_text(
             "brazil1111.discord.media:443\nrotterdam2222.discord.media:443\n"
         )
         self.assertEqual(
-            [item.region for item in region_module.voice_endpoints()], ["rotterdam", "brazil"]
+            [item.code for item in region_module.voice_endpoints()], ["rotterdam", "brazil"]
         )
 
     def test_repeated_targets_appear_once(self):
@@ -225,16 +237,21 @@ class BridgeJournal(unittest.TestCase):
         self.journal.write_text("rotterdam1234.discord.media:443\n")
         found = region_module.voice_endpoints()
         self.assertEqual(len(found), 1)
-        self.assertEqual(found[0].region, "rotterdam")
+        self.assertEqual(found[0].code, "rotterdam")
 
     def test_text_shows_name_and_region(self):
         self.journal.write_text("brazil1111.discord.media:443\n")
-        self.assertIn("brazil1111.discord.media:443 — brazil", str(region_module.voice_endpoints()[0]))
+        self.assertIn("brazil1111.discord.media:443", str(region_module.voice_endpoints()[0]))
 
 
 class MediaServerNames(unittest.TestCase):
     def test_real_voice_servers(self):
-        for host in ("rotterdam1234.discord.media", "brazil11111.discord.media", "us-east42.discord.media"):
+        for host in (
+            "c-iad10-b19ce4e8.discord.media",
+            "c-gru05-4f2c1a9b.discord.media",
+            "rotterdam1234.discord.media",
+            "brazil11111.discord.media",
+        ):
             with self.subTest(host=host):
                 self.assertTrue(region_module._is_media_server(host))
 
