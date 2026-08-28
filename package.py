@@ -49,7 +49,7 @@ def build_executable(shim: Path) -> Path:
     ]
     if os.name == "nt":
         command.append("--windowed")
-    command.append(str(ROOT / "discord_proxy" / "__main__.py"))
+    command.append(str(ROOT / "main.py"))
     subprocess.run(command, check=True)
     produced = DIST / (f"{NAME}.exe" if os.name == "nt" else NAME)
     if not produced.is_file():
