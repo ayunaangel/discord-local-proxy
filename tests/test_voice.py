@@ -82,9 +82,6 @@ class Receipts(unittest.TestCase):
         self.assertEqual(voice_module._read_receipt(self.root / "nao-existe"), "")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class DataRoot(unittest.TestCase):
     """A pasta de dados precisa respeitar o ambiente que lhe passam.
@@ -115,17 +112,17 @@ class DataRoot(unittest.TestCase):
             Path("/tmp/casa-de-mentira/.local/share/discord-proxy"),
         )
 
-    def test_a_launch_with_its_own_home_does_not_touch_the_real_one(self):
+    def test_a_temporary_home_stays_inside_itself(self):
+        import os
         import tempfile
 
-        from discord_proxy import run as run_module
-
+        if os.name == "nt" or sys.platform == "darwin":
+            self.skipTest("caminho POSIX")
         with tempfile.TemporaryDirectory() as home:
-            environ = {"HOME": home, "XDG_DATA_HOME": f"{home}/.local/share"}
-            self.assertTrue(
-                str(run_module.default_config_path()).startswith(str(Path.home()))
-                or True  # o padrão global continua sendo o real
-            )
-            self.assertEqual(
-                voice_module.data_root(environ), Path(home) / ".local/share/discord-proxy"
-            )
+            root = voice_module.data_root({"HOME": home, "XDG_DATA_HOME": f"{home}/.local/share"})
+        self.assertTrue(str(root).startswith(home), f"{root} escapou de {home}")
+        self.assertFalse(str(root).startswith(str(Path.home() / ".local")))
+
+
+if __name__ == "__main__":
+    unittest.main()
