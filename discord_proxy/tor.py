@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -244,11 +245,13 @@ def start(
     root = data_root() / "tor"
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     log = root / "tor.log"
+    _cleanup_spare_directories(root)
+    data_dir = _data_directory(root)
 
     arguments = [
         str(program.executable),
         "--SocksPort", f"127.0.0.1:{port}",
-        "--DataDirectory", str(root / "dados"),
+        "--DataDirectory", str(data_dir),
         "--ClientOnly", "1",
         "--AvoidDiskWrites", "1",
         "--Log", "notice stdout",
@@ -370,6 +373,63 @@ def _stage_of(line: str) -> str:
     if not match:
         return ""
     return (match.group(2) or match.group(1) or "").strip()
+
+
+# Um Tor por pasta de dados: o segundo recusa subir. Como dá para querer duas
+# instâncias ao mesmo tempo (o Discord aberto e uma consulta de saída), quem
+# chega depois ganha uma pasta própria — com o cache copiado, para não ter de
+# baixar a lista de servidores de novo e demorar um minuto.
+def _data_directory(root: Path) -> Path:
+    principal = root / "dados"
+    principal.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not _in_use(principal):
+        return principal
+
+    alternativa = root / f"dados-{os.getpid()}"
+    if not alternativa.exists():
+        alternativa.mkdir(mode=0o700, parents=True, exist_ok=True)
+        for arquivo in principal.glob("cached-*"):
+            try:
+                shutil.copy2(arquivo, alternativa / arquivo.name)
+            except OSError:
+                pass
+    return alternativa
+
+
+def _in_use(directory: Path) -> bool:
+    """O lock do Tor fica preso enquanto o processo dono estiver vivo."""
+    lock = directory / "lock"
+    if not lock.exists():
+        return False
+    if os.name == "nt":
+        try:  # no Windows, o arquivo fica aberto e não deixa renomear
+            lock.rename(lock)
+            return False
+        except OSError:
+            return True
+    try:
+        import fcntl
+
+        with lock.open("a") as handle:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                return False
+            except OSError:
+                return True
+    except (ImportError, OSError):
+        return False
+
+
+def _cleanup_spare_directories(root: Path) -> None:
+    """Some com as pastas extras de execuções que já terminaram."""
+    for pasta in root.glob("dados-*"):
+        if pasta.name == f"dados-{os.getpid()}" or _in_use(pasta):
+            continue
+        try:
+            shutil.rmtree(pasta)
+        except OSError:
+            pass
 
 
 def _free_port() -> int:

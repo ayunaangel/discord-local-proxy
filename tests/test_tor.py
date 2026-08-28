@@ -112,3 +112,44 @@ class HiddenWindow(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DataDirectories(unittest.TestCase):
+    """Duas instâncias ao mesmo tempo não podem brigar pela mesma pasta."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def test_uses_the_main_folder_when_free(self):
+        self.assertEqual(tor_module._data_directory(self.root).name, "dados")
+
+    @unittest.skipIf(os.name == "nt", "flock é POSIX")
+    def test_a_locked_folder_pushes_to_a_spare(self):
+        import fcntl
+
+        principal = self.root / "dados"
+        principal.mkdir(parents=True)
+        (principal / "cached-microdescs").write_text("cache de mentira")
+        with (principal / "lock").open("a") as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            escolhida = tor_module._data_directory(self.root)
+            self.assertNotEqual(escolhida, principal)
+            self.assertTrue(escolhida.name.startswith("dados-"))
+            # o cache é herdado para não baixar a lista de servidores de novo
+            self.assertTrue((escolhida / "cached-microdescs").is_file())
+
+    def test_a_free_folder_is_not_in_use(self):
+        pasta = self.root / "dados"
+        pasta.mkdir(parents=True)
+        (pasta / "lock").write_text("")
+        self.assertFalse(tor_module._in_use(pasta))
+
+    def test_cleanup_removes_abandoned_spares(self):
+        abandonada = self.root / "dados-999999"
+        abandonada.mkdir(parents=True)
+        tor_module._cleanup_spare_directories(self.root)
+        self.assertFalse(abandonada.exists())
