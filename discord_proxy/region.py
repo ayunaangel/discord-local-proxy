@@ -33,6 +33,8 @@ from .voice import data_root
 STATE_NAME = "voice-endpoint.txt"
 JOURNAL_NAME = "bridge-targets.txt"
 # Nome dos servidores de mídia do Discord — voz, câmera e tela passam por eles.
+# Um servidor de verdade é `<região><número>.discord.media`; nomes sem número
+# no fim são outra coisa (o `latency.discord.media` só mede latência).
 MEDIA_SUFFIX = ".discord.media"
 # O Chromium também fala UDP em 443 (QUIC) e 80; isso não é voz.
 WEB_PORTS = frozenset({80, 443, 8080})
@@ -125,6 +127,15 @@ def voice_endpoints(install: Install | None = None, *, resolve: bool = True) -> 
     return found
 
 
+def _is_media_server(host: str) -> bool:
+    """`rotterdam1234.discord.media` sim; `latency.discord.media` não."""
+    host = host.lower()
+    if not host.endswith(MEDIA_SUFFIX):
+        return False
+    label = host[: -len(MEDIA_SUFFIX)].rsplit(".", 1)[-1]
+    return bool(label) and label[-1].isdigit()
+
+
 def _from_journal() -> list[Endpoint]:
     """Os servidores de mídia que a ponte viu, mais recentes primeiro."""
     try:
@@ -134,7 +145,7 @@ def _from_journal() -> list[Endpoint]:
     found: list[Endpoint] = []
     for line in reversed(lines[-4096:]):
         host, _, port = line.strip().rpartition(":")
-        if not host or not port.isdigit() or not host.lower().endswith(MEDIA_SUFFIX):
+        if not host or not port.isdigit() or not _is_media_server(host):
             continue
         endpoint = Endpoint(address="", port=int(port), hostname=host)
         if endpoint not in found:

@@ -230,3 +230,18 @@ class BridgeJournal(unittest.TestCase):
     def test_text_shows_name_and_region(self):
         self.journal.write_text("brazil1111.discord.media:443\n")
         self.assertIn("brazil1111.discord.media:443 — brazil", str(region_module.voice_endpoints()[0]))
+
+
+class MediaServerNames(unittest.TestCase):
+    def test_real_voice_servers(self):
+        for host in ("rotterdam1234.discord.media", "brazil11111.discord.media", "us-east42.discord.media"):
+            with self.subTest(host=host):
+                self.assertTrue(region_module._is_media_server(host))
+
+    def test_latency_probe_is_not_a_voice_server(self):
+        self.assertFalse(region_module._is_media_server("latency.discord.media"))
+
+    def test_other_discord_hosts(self):
+        for host in ("cdn.discordapp.com", "gateway.discord.gg", "discord.com", "media.discordapp.net"):
+            with self.subTest(host=host):
+                self.assertFalse(region_module._is_media_server(host))
