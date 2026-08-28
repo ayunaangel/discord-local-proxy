@@ -111,7 +111,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _attach_console() -> None:
+    """No Windows, reaproveita o console de quem chamou.
+
+    O executável é compilado como janela (senão um console preto ficaria aberto
+    atrás da interface). Sem isto, `DiscordProxy.exe detect` não imprimiria
+    nada: a saída iria para lugar nenhum.
+    """
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        ATTACH_PARENT_PROCESS = -1
+        if not ctypes.windll.kernel32.AttachConsole(ATTACH_PARENT_PROCESS):
+            return
+        for nome, fluxo in (("stdout", sys.stdout), ("stderr", sys.stderr)):
+            if fluxo is None or getattr(fluxo, "closed", False):
+                setattr(sys, nome, open("CONOUT$", "w", encoding="utf-8", errors="replace"))
+    except Exception:  # noqa: BLE001 - nunca deixar isto derrubar o programa
+        pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    if (argv or sys.argv[1:]) and getattr(sys, "frozen", False):
+        _attach_console()
     arguments = build_parser().parse_args(argv)
     command = arguments.command or "gui"
     try:

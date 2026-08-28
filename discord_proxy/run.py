@@ -198,6 +198,7 @@ def launch(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            **_process_options(),
         )
 
         started = Result(
@@ -224,6 +225,13 @@ def launch(
             bridge.stop()
         if tor_process is not None:
             tor_process.stop()
+
+
+def _process_options() -> dict:
+    """No Windows, o Discord é aberto sem piscar um console preto."""
+    if os.name != "nt":
+        return {"start_new_session": True}
+    return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
 
 
 def _say(on_step: Callable[[str], None] | None, message: str) -> None:

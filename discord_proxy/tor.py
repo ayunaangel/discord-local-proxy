@@ -379,16 +379,20 @@ def _free_port() -> int:
 
 
 def _hidden_window() -> dict:
-    """No Windows, impede que uma janela preta pisque na tela."""
+    """No Windows, impede que uma janela preta pisque na tela.
+
+    CREATE_NO_WINDOW sozinho: combiná-lo com DETACHED_PROCESS é inválido e faz
+    o CreateProcess falhar.
+    """
     if os.name != "nt":
         return {"start_new_session": True}
-    flags = 0
-    for name in ("CREATE_NO_WINDOW", "DETACHED_PROCESS"):
-        flags |= getattr(subprocess, name, 0)
     info = subprocess.STARTUPINFO()
     info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     info.wShowWindow = 0  # SW_HIDE
-    return {"creationflags": flags, "startupinfo": info}
+    return {
+        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        "startupinfo": info,
+    }
 
 
 def country_label(code: str) -> str:
