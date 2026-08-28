@@ -90,7 +90,12 @@ class SaveAndLoad(unittest.TestCase):
     def test_missing_file_gives_the_defaults(self):
         config = config_module.load_or_default(self.path)
         self.assertFalse(config.proxy.enabled)
-        self.assertTrue(config.voice)
+        # O ajuste de voz não tem nada a ver com região: nasce desligado.
+        self.assertFalse(config.voice)
+
+    def test_voice_can_be_turned_on_explicitly(self):
+        self.path.write_text("[discord-proxy]\nvoice = on\n")
+        self.assertTrue(config_module.load(self.path).voice)
 
     def test_packet_must_be_a_real_file(self):
         self.path.write_text("[discord-proxy]\npacket = nao-existe.bin\n")

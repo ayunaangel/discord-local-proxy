@@ -49,11 +49,14 @@
 #  include <wchar.h>
 typedef UINT_PTR socket_handle;
 typedef int socklen_type;
+typedef SOCKET int_or_socket;
 #else
 #  include <dlfcn.h>
 #  include <errno.h>
 #  include <fcntl.h>
 #  include <pthread.h>
+#  include <arpa/inet.h>
+#  include <netinet/in.h>
 #  include <sys/socket.h>
 #  include <sys/stat.h>
 #  include <sys/uio.h>
@@ -61,6 +64,7 @@ typedef int socklen_type;
 #  include <unistd.h>
 typedef int socket_handle;
 typedef socklen_t socklen_type;
+typedef int int_or_socket;
 #endif
 
 /* ------------------------------------------------------------------ estado */
@@ -79,8 +83,9 @@ struct tracked {
     unsigned char address[128];
 };
 
-static struct shim_config g_config = {1, 50u, {0}};
+static struct shim_config g_config = {0, 50u, {0}};
 static struct tracked g_tracked[MAX_TRACKED];
+static char g_state_file[4096];
 
 #ifdef _WIN32
 static CRITICAL_SECTION g_lock;
@@ -317,7 +322,7 @@ static const char *read_env(const char *name, char *buffer, size_t capacity) {
 }
 
 static void load_config(void) {
-    struct shim_config config = {1, 50u, {0}};
+    struct shim_config config = {0, 50u, {0}};
     char env_buffer[4096];
     const char *from_env;
     char candidate[4352];
@@ -357,6 +362,12 @@ static void load_config(void) {
     from_env = read_env("DISCORD_PROXY_PACKET", env_buffer, sizeof(env_buffer));
     if (from_env != NULL && strlen(from_env) < sizeof(config.packet)) {
         memcpy(config.packet, from_env, strlen(from_env) + 1u);
+    }
+
+    g_state_file[0] = '\0';
+    from_env = read_env("DISCORD_PROXY_STATE", env_buffer, sizeof(env_buffer));
+    if (from_env != NULL && strlen(from_env) < sizeof(g_state_file)) {
+        memcpy(g_state_file, from_env, strlen(from_env) + 1u);
     }
 
     g_config = config;
@@ -487,12 +498,77 @@ static void prime(socket_handle handle, const void *address, socklen_type addres
     sleep_ms(g_config.delay_ms);
 }
 
+/*
+ * Anota para onde a chamada está indo. É o que permite ao launcher dizer em
+ * que região o Discord te colocou — sem isso, no Windows não há como saber o
+ * destino de um socket UDP. Acontece mesmo com o ajuste de voz desligado.
+ */
+static void record_endpoint(socket_handle handle, const void *address,
+                            socklen_type address_length) {
+    struct sockaddr_storage storage;
+    const struct sockaddr *target = (const struct sockaddr *)address;
+    char text[128];
+    char line[192];
+    FILE *file;
+    unsigned short port = 0;
+    const void *raw = NULL;
+
+    if (g_state_file[0] == '\0') {
+        return;
+    }
+    if (target == NULL || address_length <= 0) {
+        socklen_type size = (socklen_type)sizeof(storage);
+        memset(&storage, 0, sizeof(storage));
+        if (getpeername((int_or_socket)handle, (struct sockaddr *)&storage, &size) != 0) {
+            return;
+        }
+        target = (const struct sockaddr *)&storage;
+    }
+
+    if (target->sa_family == AF_INET) {
+        const struct sockaddr_in *v4 = (const struct sockaddr_in *)target;
+        raw = &v4->sin_addr;
+        port = ntohs(v4->sin_port);
+    } else if (target->sa_family == AF_INET6) {
+        const struct sockaddr_in6 *v6 = (const struct sockaddr_in6 *)target;
+        raw = &v6->sin6_addr;
+        port = ntohs(v6->sin6_port);
+    } else {
+        return;
+    }
+    if (inet_ntop(target->sa_family, raw, text, (socklen_type)sizeof(text)) == NULL) {
+        return;
+    }
+    snprintf(line, sizeof(line), "%s:%u\n", text, (unsigned)port);
+
+#ifdef _WIN32
+    {
+        wchar_t wide[4096];
+        if (MultiByteToWideChar(CP_UTF8, 0, g_state_file, -1, wide, 4096) == 0) {
+            return;
+        }
+        file = _wfopen(wide, L"ab");
+    }
+#else
+    file = fopen(g_state_file, "ab");
+#endif
+    if (file == NULL) {
+        return;
+    }
+    fwrite(line, 1u, strlen(line), file);
+    fclose(file);
+}
+
 static void maybe_prime(socket_handle handle, const unsigned char *bytes, size_t length,
                         const void *address, socklen_type address_length) {
-    if (!g_config.voice || !is_discovery_packet(bytes, length) || !socket_is_udp(handle)) {
+    if (!is_discovery_packet(bytes, length) || !socket_is_udp(handle)) {
         return;
     }
     if (!claim_first_send(handle, address, address_length)) {
+        return;
+    }
+    record_endpoint(handle, address, address_length);
+    if (!g_config.voice) {
         return;
     }
     prime(handle, address, address_length);

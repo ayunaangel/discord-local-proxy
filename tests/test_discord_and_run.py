@@ -239,6 +239,7 @@ class LaunchEndToEnd(unittest.TestCase):
             "stable",
             explicit_config=self.config_path,
             wait=False,
+            require_closed=False,
             environ=self.environ,
         )
         self.assertFalse(result.proxy_used)
@@ -264,12 +265,41 @@ class LaunchEndToEnd(unittest.TestCase):
             "stable",
             explicit_config=self.config_path,
             wait=False,
+            require_closed=False,
             environ=self.environ,
         )
         self.assertTrue(result.proxy_used)
         recorded = self._wait_for_report()
         self.assertIn("--proxy-server=http://127.0.0.1:", recorded)
         self.assertIn("--disable-quic", recorded)
+
+    def test_an_open_discord_blocks_the_launch(self):
+        """Uma janela viva ignora os argumentos novos, então recusamos abrir."""
+        import shutil as shutil_module
+
+        holder_directory = tempfile.mkdtemp()
+        self.addCleanup(shutil_module.rmtree, holder_directory, True)
+        holder = Path(holder_directory) / "Discord"
+        shutil_module.copy2(sys.executable, holder)
+        holder.chmod(0o755)
+        import subprocess as subprocess_module
+
+        process = subprocess_module.Popen(
+            [str(holder), "-c", "import time; print('x', flush=True); time.sleep(20)"],
+            stdout=subprocess_module.PIPE,
+            stderr=subprocess_module.DEVNULL,
+            text=True,
+        )
+        self.addCleanup(process.kill)
+        if process.stdout is None or process.stdout.readline().strip() != "x":
+            self.skipTest("o processo de mentira não subiu")
+
+        config_module.save(self.config_path, config_module.Config(voice=False))
+        with self.assertRaises(run_module.LaunchError) as caught:
+            run_module.launch(
+                "stable", explicit_config=self.config_path, environ=self.environ
+            )
+        self.assertIn("já está aberto", str(caught.exception))
 
     def test_a_broken_proxy_stops_the_launch(self):
         with socket_module.socket() as probe:
@@ -283,6 +313,9 @@ class LaunchEndToEnd(unittest.TestCase):
         )
         with self.assertRaises(run_module.LaunchError):
             run_module.launch(
-                "stable", explicit_config=self.config_path, environ=self.environ
+                "stable",
+                explicit_config=self.config_path,
+                require_closed=False,
+                environ=self.environ,
             )
         self.assertFalse(self.report.exists())

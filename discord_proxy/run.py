@@ -19,6 +19,7 @@ ENV_INI = "DISCORD_PROXY_INI"
 ENV_VOICE = "DISCORD_PROXY_VOICE"
 ENV_DELAY = "DISCORD_PROXY_DELAY"
 ENV_PACKET = "DISCORD_PROXY_PACKET"
+ENV_STATE = "DISCORD_PROXY_STATE"
 
 
 class LaunchError(RuntimeError):
@@ -206,6 +207,7 @@ def _environment(
         ENV_VOICE,
         ENV_DELAY,
         ENV_PACKET,
+        ENV_STATE,
     }
     lowered = {name.casefold() for name in blocked}
     environment = {k: v for k, v in source.items() if k.casefold() not in lowered}
@@ -215,6 +217,12 @@ def _environment(
     if config.packet is not None:
         environment[ENV_PACKET] = str(config.packet)
     environment[ENV_INI] = str(path)
+    if shim is not None:
+        # Onde o componente anota o servidor de voz em uso, para o `region`.
+        state = voice_module.data_root() / "voice-endpoint.txt"
+        state.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        state.unlink(missing_ok=True)
+        environment[ENV_STATE] = str(state)
     if shim is not None and os.name != "nt":
         environment["LD_PRELOAD"] = str(shim)
     return environment

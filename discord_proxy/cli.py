@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import replace
 from pathlib import Path
 
 from . import bridge as bridge_module
+from . import region as region_module
 from . import run as run_module
 from . import shortcut as shortcut_module
 from . import voice as voice_module
@@ -62,6 +64,20 @@ def build_parser() -> argparse.ArgumentParser:
     link = add_common(subcommands.add_parser("shortcut", help="cria o atalho Discord (Proxy)"))
     link.add_argument("--remove", action="store_true", help="remove o atalho")
 
+    region_command = add_common(
+        subcommands.add_parser("region", help="em que região a chamada de agora está caindo")
+    )
+    region_command.add_argument(
+        "--online",
+        action="store_true",
+        help=f"também pergunta o país a um serviço externo ({region_module.LOOKUP_HOST})",
+    )
+
+    exit_command = subcommands.add_parser(
+        "exit-ip", help="que IP e país o proxy apresenta (consulta um serviço externo)"
+    )
+    exit_command.add_argument("--config", type=Path, help="caminho do arquivo")
+
     subcommands.add_parser("clean", help="remove atalhos e o componente nativo instalado")
     return parser
 
@@ -106,6 +122,12 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         print("\nComando:")
         print("  " + " ".join(plan.command))
         return 0
+
+    if command == "region":
+        return _region(arguments)
+
+    if command == "exit-ip":
+        return _exit_ip(arguments)
 
     if command == "shortcut":
         return _shortcut(arguments)
@@ -164,6 +186,50 @@ def _config(arguments: argparse.Namespace) -> int:
     else:
         print(f"# {path}")
         print(config.as_ini(), end="")
+    return 0
+
+
+def _region(arguments: argparse.Namespace) -> int:
+    install = detect_channel(arguments.channel)
+    endpoints = region_module.voice_endpoints(install)
+    if not endpoints:
+        print("Nenhuma chamada de voz ativa no momento.")
+        print(
+            "Entre numa chamada (ou comece um Go Live) e rode de novo — é durante a\n"
+            "chamada que dá para ver o servidor em uso."
+        )
+        if os.name == "nt":
+            print(
+                "\nNo Windows isto depende do componente nativo: ligue `voice = on`\n"
+                "e abra o Discord pelo launcher, senão não há como ver o destino."
+            )
+        return 1
+
+    print("Servidor de voz em uso (é por ele que passam a câmera e o Go Live):")
+    for endpoint in endpoints:
+        print(f"  {endpoint}")
+        if arguments.online:
+            print(f"    consultando {region_module.LOOKUP_HOST}…")
+            try:
+                print(f"    {region_module.locate(endpoint.address)}")
+            except (OSError, ValueError) as exc:
+                print(f"    não deu para consultar: {exc}")
+    if not any(endpoint.region for endpoint in endpoints) and not arguments.online:
+        print("\nO nome do servidor não veio pelo DNS. Use --online para perguntar o país.")
+    return 0
+
+
+def _exit_ip(arguments: argparse.Namespace) -> int:
+    config = load_or_default(_path_for(arguments))
+    print(f"Consultando {region_module.LOOKUP_HOST} através de: {config.proxy.label}")
+    try:
+        place = region_module.exit_address(config.proxy)
+    except (OSError, ValueError, bridge_module.ProxyError) as exc:
+        print(f"não deu para consultar: {exc}", file=sys.stderr)
+        return 1
+    print(f"  {place}")
+    if not config.proxy.enabled:
+        print("\nEste é o seu IP de verdade — não há proxy configurado.")
     return 0
 
 

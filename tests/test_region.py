@@ -1,0 +1,178 @@
+"""Descoberta de para onde a chamada está indo."""
+
+import ipaddress
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from discord_proxy import region as region_module
+from discord_proxy.region import Endpoint
+
+_original_state = region_module.state_path
+
+HOLDER = r"""
+import socket, sys, time
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.connect(("93.184.216.34", 50007))
+print("pronto", flush=True)
+time.sleep(int(sys.argv[1]))
+"""
+
+
+class Naming(unittest.TestCase):
+    def test_region_comes_from_the_hostname(self):
+        endpoint = Endpoint("1.2.3.4", 50001, "brazil11111.discord.media")
+        self.assertEqual(endpoint.region, "brazil")
+
+    def test_region_without_digits(self):
+        self.assertEqual(Endpoint("1.2.3.4", 1, "rotterdam.discord.media").region, "rotterdam")
+
+    def test_no_hostname_means_no_region(self):
+        endpoint = Endpoint("1.2.3.4", 50001)
+        self.assertEqual(endpoint.region, "")
+        self.assertIn("região desconhecida", str(endpoint))
+
+    def test_text_shows_the_region(self):
+        self.assertIn("us-east", str(Endpoint("1.2.3.4", 50001, "us-east4242.discord.media")))
+
+
+class ProcAddresses(unittest.TestCase):
+    def test_ipv4_is_little_endian_hex(self):
+        # 0100007F:14E9 -> 127.0.0.1:5353
+        endpoint = region_module._parse_proc_address("0100007F:14E9", 4)
+        self.assertIsNone(endpoint, "loopback deve ser descartado")
+
+    def test_public_ipv4(self):
+        packed = ipaddress.IPv4Address("93.184.216.34").packed
+        field = packed[::-1].hex().upper() + ":C357"
+        endpoint = region_module._parse_proc_address(field, 4)
+        self.assertEqual((endpoint.address, endpoint.port), ("93.184.216.34", 0xC357))
+
+    def test_port_zero_is_not_a_destination(self):
+        self.assertIsNone(region_module._parse_proc_address("00000000:0000", 4))
+
+    def test_private_ranges_are_ignored(self):
+        for text in ("192.168.0.10", "10.1.2.3", "203.0.113.7"):
+            with self.subTest(address=text):
+                field = ipaddress.IPv4Address(text).packed[::-1].hex().upper() + ":C357"
+                self.assertIsNone(region_module._parse_proc_address(field, 4))
+
+    def test_quic_on_udp_443_is_not_voice(self):
+        field = ipaddress.IPv4Address("93.184.216.34").packed[::-1].hex().upper() + ":01BB"
+        self.assertIsNone(region_module._parse_proc_address(field, 4))
+
+    def test_ipv6(self):
+        # 2001:db8::/32 é faixa de documentação e conta como privada, então o
+        # endereço aqui precisa ser um global de verdade.
+        packed = ipaddress.IPv6Address("2606:4700:4700::1111").packed
+        field = b"".join(packed[i : i + 4][::-1] for i in range(0, 16, 4)).hex().upper() + ":C357"
+        endpoint = region_module._parse_proc_address(field, 16)
+        self.assertEqual(endpoint.address, "2606:4700:4700::1111")
+
+
+class StateFile(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.path = Path(self.directory.name) / "voice-endpoint.txt"
+        self.previous = region_module.state_path
+        region_module.state_path = lambda: self.path
+
+    def tearDown(self):
+        region_module.state_path = self.previous
+        self.directory.cleanup()
+
+    def test_reads_the_most_recent_first(self):
+        self.path.write_text("93.184.216.34:50007\n198.51.100.9:50009\n")
+        found = region_module._from_state_file()
+        self.assertEqual([item.address for item in found], ["198.51.100.9", "93.184.216.34"])
+
+    def test_repeated_lines_appear_once(self):
+        self.path.write_text("93.184.216.34:50007\n" * 5)
+        self.assertEqual(len(region_module._from_state_file()), 1)
+
+    def test_garbage_lines_are_skipped(self):
+        self.path.write_text("lixo\n\nnão-é-ip:99\n93.184.216.34:50007\n")
+        found = region_module._from_state_file()
+        self.assertEqual([item.address for item in found], ["93.184.216.34"])
+
+    def test_missing_file_is_not_an_error(self):
+        self.assertEqual(region_module._from_state_file(), [])
+
+
+@unittest.skipUnless(sys.platform.startswith("linux"), "leitura do /proc é só no Linux")
+class ProcDiscovery(unittest.TestCase):
+    """Sobe um processo chamado `discord` com um socket UDP e o encontra."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.fake = Path(self.directory.name) / "discord"
+        shutil.copy2(sys.executable, self.fake)
+        self.fake.chmod(0o755)
+        self.process = subprocess.Popen(
+            [str(self.fake), "-c", HOLDER, "20"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        self.addCleanup(self._stop)
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if (self.process.stdout or None) and self.process.stdout.readline().strip() == "pronto":
+                return
+            if self.process.poll() is not None:
+                break
+        self.skipTest("o processo de mentira não subiu")
+
+    def _stop(self):
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+        self.directory.cleanup()
+
+    def test_finds_the_udp_destination(self):
+        found = region_module._from_proc(None)
+        addresses = {item.address for item in found}
+        self.assertIn("93.184.216.34", addresses)
+        chosen = next(item for item in found if item.address == "93.184.216.34")
+        self.assertEqual(chosen.port, 50007)
+
+    def test_voice_ports_are_listed_first(self):
+        region_module.state_path = lambda: Path("/caminho/que/nao/existe")
+        try:
+            found = region_module.voice_endpoints(resolve=False)
+        finally:
+            region_module.state_path = _original_state
+        if len(found) > 1:
+            ports = [item.port for item in found]
+            in_range = [port in region_module.VOICE_PORT_RANGE for port in ports]
+            self.assertEqual(in_range, sorted(in_range, reverse=True))
+
+
+class Places(unittest.TestCase):
+    def test_place_from_payload(self):
+        place = region_module._place_from(
+            {"ip": "1.2.3.4", "city": "Amsterdam", "region": "North Holland", "country": "NL"}
+        )
+        self.assertIn("Amsterdam", str(place))
+        self.assertIn("NL", str(place))
+
+    def test_place_without_details(self):
+        self.assertIn("local desconhecido", str(region_module._place_from({"ip": "1.2.3.4"})))
+
+    def test_locate_refuses_something_that_is_not_an_ip(self):
+        with self.assertRaises(ValueError):
+            region_module.locate("nao-e-ip")
+
+
+if __name__ == "__main__":
+    unittest.main()

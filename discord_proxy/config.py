@@ -1,14 +1,16 @@
 """Configuração do Discord Proxy.
 
-Um único arquivo INI, uma única seção, quatro chaves. O proxy é escrito como
-uma URL só — o mesmo formato do `drover.ini` — em vez de host/porta/usuário/
-senha espalhados em campos separados.
+Um único arquivo INI, uma única seção. O proxy é escrito como uma URL só — o
+mesmo formato do `drover.ini` — em vez de host/porta/usuário/senha espalhados
+em campos separados.
 
     [discord-proxy]
-    proxy  = socks5://usuario:senha@127.0.0.1:1080
-    voice  = on
-    delay  = 50
-    packet =
+    proxy  = socks5://127.0.0.1:9150
+    voice  = off
+
+O `proxy` é o que troca a região da chamada. O `voice` é outra coisa: mexe no
+primeiro pacote UDP para furar filtro de DPI, não tem efeito nenhum sobre
+região, e por isso nasce desligado.
 """
 
 from __future__ import annotations
@@ -86,7 +88,7 @@ class Proxy:
 @dataclass(frozen=True)
 class Config:
     proxy: Proxy = Proxy()
-    voice: bool = True
+    voice: bool = False
     delay_ms: int = 50
     packet: Path | None = None
     executable: Path | None = None
@@ -176,7 +178,7 @@ def load(path: Path, *, environ: Mapping[str, str] | None = None) -> Config:
         section = parser[configparser.DEFAULTSECT]
 
     proxy = parse_proxy(section.get("proxy", ""), environ=environ)
-    voice = parse_bool(section.get("voice", "on"))
+    voice = parse_bool(section.get("voice", "off"))
     delay_ms = _parse_delay(section.get("delay", "50"))
     packet = _resolve_optional_path(section.get("packet", ""), path.parent)
     if packet is not None:
@@ -206,11 +208,14 @@ def render_ini(config: Config) -> str:
     url = config.proxy.url
     return (
         f"[{SECTION}]\n"
-        "; Deixe proxy vazio para o modo direto (só o ajuste de voz).\n"
-        "; Exemplos: http://127.0.0.1:8080  |  socks5://usuario:senha@servidor:1080\n"
+        "; O proxy decide de onde o Discord parece vir — e é isso que muda a\n"
+        "; região do servidor de voz que ele te entrega (a mesma por onde passa\n"
+        "; o vídeo do Go Live). Vazio = direto, sem trocar nada.\n"
+        "; Exemplos: socks5://127.0.0.1:9150  |  http://usuario:senha@servidor:8080\n"
         f"proxy = {url}\n"
         "\n"
-        "; Ajuste de voz (UDP). on/off.\n"
+        "; Ajuste de voz por UDP (contra filtro de DPI). Não tem efeito sobre\n"
+        "; região; deixe off a menos que a voz esteja bloqueada na sua rede.\n"
         f"voice = {'on' if config.voice else 'off'}\n"
         "\n"
         "; Pausa em milissegundos depois do preparo de voz.\n"
