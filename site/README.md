@@ -1,14 +1,37 @@
 # Site do Discord Proxy
 
-Uma página só, em HTML, CSS e JavaScript puros. Sem build, sem dependências,
-sem `node_modules`. Para editar um texto, abra o `index.html` e escreva.
+Cinco páginas em HTML, CSS e JavaScript puros. Sem dependências, sem
+`node_modules`.
 
 ```
-index.html    a página inteira
-style.css     todo o visual (as cores ficam no topo, em :root)
-script.js     três coisinhas: sombra no topo, download do sistema certo, animação
-vercel.json   redirecionamentos das rotas antigas e cabeçalhos
+gerar.py         monta as páginas a partir de um molde comum
+index.html       início
+como-usar.html   passo a passo
+download.html    downloads e requisitos
+duvidas.html     perguntas frequentes
+seguranca.html   o que faz, o que não faz, senha e privacidade
+style.css        todo o visual (as cores ficam no topo, em :root)
+script.js        sombra no topo, download do sistema certo, animação
+vercel.json      redirecionamentos das rotas antigas e cabeçalhos
 ```
+
+## Como editar
+
+Os textos ficam no `gerar.py`, em blocos com o nome de cada página. Edite lá e
+rode:
+
+```bash
+python3 gerar.py
+```
+
+Isso reescreve os cinco `.html`. Existe por um motivo simples: cabeçalho e
+rodapé são iguais nas cinco páginas, e mantê-los copiados à mão significa que
+uma mudança na navegação exige lembrar de editar todos — mais cedo ou mais tarde
+uma página fica para trás.
+
+O HTML gerado é versionado e funciona sozinho: quem só quer hospedar não precisa
+rodar nada, e dá para editar um `.html` direto se for um ajuste pontual (só
+lembre que o próximo `gerar.py` sobrescreve).
 
 O JavaScript é opcional: com ele desligado a página continua completa e os
 downloads continuam funcionando.

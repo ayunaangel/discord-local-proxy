@@ -411,3 +411,61 @@ details p a { color: var(--violeta); font-weight: 600; }
 
 .aparece { opacity: 0; transform: translateY(18px); transition: opacity 600ms ease, transform 600ms cubic-bezier(.2,.7,.3,1); }
 .aparece.visivel { opacity: 1; transform: none; }
+
+/* ------------------------------------------------- páginas internas ------ */
+
+.nav-links > a.ativo {
+  color: var(--tinta);
+  background: color-mix(in srgb, var(--violeta) 10%, transparent);
+}
+
+/* Cabeçalho das páginas que não são a inicial */
+.cabeca {
+  padding: 62px 0 10px;
+  background:
+    radial-gradient(70% 120% at 15% 0%, color-mix(in srgb, var(--magenta) 12%, transparent), transparent 70%),
+    radial-gradient(60% 110% at 85% 0%, color-mix(in srgb, var(--violeta-claro) 16%, transparent), transparent 68%);
+}
+.cabeca h1 { margin-bottom: 14px; }
+.cabeca .chamada { margin-bottom: 0; }
+.cabeca .chamada a { color: var(--violeta); font-weight: 600; }
+
+/* Passo a passo numerado, um embaixo do outro */
+.guia { list-style: none; margin: 0; padding: 0; counter-reset: guia; }
+.guia > li {
+  padding: 26px 0 28px;
+  border-bottom: 1px solid var(--linha);
+}
+.guia > li:last-child { border-bottom: none; }
+.guia h2 { font-size: 1.35rem; margin-bottom: 10px; letter-spacing: -.02em; }
+.guia p { margin: 0 0 10px; color: var(--suave); }
+.guia p:last-child { margin-bottom: 0; }
+.guia a { color: var(--violeta); font-weight: 600; }
+
+.lista { margin: 0 0 12px; padding-left: 22px; color: var(--suave); }
+.lista li { margin-bottom: 8px; }
+.lista b { color: var(--tinta); }
+.lista a { color: var(--violeta); font-weight: 600; }
+
+/* Caixas de aviso */
+.aviso {
+  margin: 30px 0 0; padding: 20px 22px; border-radius: var(--raio);
+  background: color-mix(in srgb, var(--violeta) 6%, transparent);
+  border-left: 4px solid var(--violeta);
+}
+.aviso h3 { margin-bottom: 8px; }
+.aviso p { margin: 0 0 10px; color: var(--suave); font-size: .97rem; }
+.aviso p:last-child { margin-bottom: 0; }
+.aviso-forte {
+  background: color-mix(in srgb, var(--magenta) 8%, transparent);
+  border-left-color: var(--magenta);
+}
+
+/* Requisitos, na página de download */
+.requisitos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 34px; margin-top: 28px; }
+@media (max-width: 700px) { .requisitos { grid-template-columns: 1fr; } }
+.requisitos p { margin: 0; color: var(--suave); font-size: .97rem; }
+.requisitos a { color: var(--violeta); font-weight: 600; }
+
+/* A chamada final do passo a passo vira botão */
+.passos-nota .botao { margin-top: 4px; }

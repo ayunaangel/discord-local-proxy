@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segurança — Discord Proxy</title>
+<meta name="description" content="O que o programa faz e o que ele não faz, como a sua senha é tratada e o que sai do seu computador.">
+<meta name="theme-color" content="#2A1E5C">
+<meta property="og:title" content="Segurança — Discord Proxy">
+<meta property="og:description" content="O que o programa faz e o que ele não faz, como a sua senha é tratada e o que sai do seu computador.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌎</text></svg>">
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <nav class="nav" aria-label="Navegação principal">
+    <a class="marca" href="/">
+      <span class="marca-ponto" aria-hidden="true"></span>
+      Discord Proxy
+    </a>
+    <div class="nav-links">
+      <a href="/">Início</a>
+      <a href="/como-usar">Como usar</a>
+      <a href="/download">Download</a>
+      <a href="/duvidas">Dúvidas</a>
+      <a href="/seguranca" class="ativo" aria-current="page">Segurança</a>
+      <a class="nav-github" href="https://github.com/ayunaangel/discord-local-proxy">GitHub</a>
+      <a class="botao botao-pequeno" href="/download">Baixar</a>
+    </div>
+  </nav>
+</header>
+
+<main id="conteudo">
+
+<section class="cabeca">
+  <div class="envolve envolve-estreito">
+    <p class="olho">Segurança</p>
+    <h1>O que o programa faz — e o que ele <span class="destaque">não</span> faz.</h1>
+    <p class="chamada">Prometer menos e cumprir vale mais que o contrário. Todo o
+    código é aberto: dá para conferir cada afirmação desta página.</p>
+  </div>
+</section>
+
+<section class="secao">
+  <div class="envolve envolve-estreito">
+    <h2>Não é o que parece</h2>
+    <div class="honesto-grade">
+      <div>
+        <h3>Não é VPN</h3>
+        <p>Só o Discord sai pelo outro país. Banco, streaming e jogos continuam na
+        sua conexão de sempre — e é isso que a maioria das pessoas quer.</p>
+      </div>
+      <div>
+        <h3>Não é anônimo</h3>
+        <p>Trocar a região não te esconde de ninguém. A conta continua sendo a sua,
+        e o servidor de saída vê o tráfego do seu Discord passar.</p>
+      </div>
+      <div>
+        <h3>Não resolve tudo</h3>
+        <p>Se a limitação vier da conta e não do IP, trocar o país não muda nada.
+        Por isso o programa te mostra de onde você está saindo: para conferir em vez
+        de adivinhar.</p>
+      </div>
+      <div>
+        <h3>Não mexe no Discord</h3>
+        <p>Não altera arquivos internos, não injeta certificado, não desliga
+        verificação de segurança. Ele só abre o Discord com uma configuração de
+        rede diferente.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="secao secao-clara">
+  <div class="envolve envolve-estreito">
+    <h2>O cuidado com a sua senha</h2>
+    <p class="secao-chamada">Se você usa um proxy com usuário e senha, ela precisa
+    chegar ao servidor sem passar por onde não deve.</p>
+    <ul class="lista">
+      <li>A senha <b>nunca</b> vai para a linha de comando do Discord, nem para
+      atalhos, nem para os registros.</li>
+      <li>O Discord fala com uma ponte local em <code>127.0.0.1</code>, e é a ponte
+      que se autentica no proxy de verdade.</li>
+      <li>O arquivo de configuração é gravado com permissão só sua.</li>
+      <li>O relatório de diagnóstico troca a senha por <code>***</code> — há um
+      teste automatizado que garante isso.</li>
+      <li>Você pode deixar a senha fora do arquivo, usando uma variável de
+      ambiente: <code>socks5://usuario:${MINHA_SENHA}@servidor:1080</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="secao">
+  <div class="envolve envolve-estreito">
+    <h2>O que sai do seu computador</h2>
+    <ul class="lista">
+      <li><b>Nada é enviado para nós.</b> Não há servidor nosso, não há telemetria,
+      não há conta para criar.</li>
+      <li>Ao clicar em <b>Onde estou saindo</b>, o programa consulta um serviço
+      público de geolocalização de IP para descobrir o país. Só quando você
+      clica.</li>
+      <li>O ajuste de voz por UDP vem <b>desligado</b>. Ele é para outro problema —
+      rede que bloqueia voz por inspeção de pacote — e não tem efeito sobre
+      região.</li>
+      <li>No Windows, o ajuste de voz coloca um <code>version.dll</code> ao lado do
+      Discord. A instalação guarda o hash do arquivo e a remoção só apaga se
+      bater; um <code>version.dll</code> que não seja nosso nunca é
+      sobrescrito.</li>
+    </ul>
+
+    <div class="aviso">
+      <h3>Antivírus pode reclamar</h3>
+      <p>Qualquer DLL ao lado de um executável chama atenção de antivírus, e o
+      nosso não é exceção. Você pode conferir o hash publicado na release e ler o
+      código antes de liberar — ou simplesmente deixar o ajuste de voz desligado,
+      que é o padrão.</p>
+    </div>
+
+    <p class="secao-chamada" style="margin-top:32px">
+      <a class="botao" href="https://github.com/ayunaangel/discord-local-proxy">Ler o código no GitHub</a>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer class="rodape">
+  <div class="envolve rodape-grade">
+    <div>
+      <a class="marca" href="/">
+        <span class="marca-ponto" aria-hidden="true"></span>
+        Discord Proxy
+      </a>
+      <p>Projeto independente, de código aberto, licença MIT.
+      Não é afiliado ao Discord.</p>
+    </div>
+    <nav aria-label="Rodapé">
+      <a href="/como-usar">Como usar</a>
+      <a href="/download">Download</a>
+      <a href="/duvidas">Dúvidas</a>
+      <a href="/seguranca">Segurança</a>
+      <a href="https://github.com/ayunaangel/discord-local-proxy">Código-fonte</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dúvidas — Discord Proxy</title>
+<meta name="description" content="As perguntas mais comuns: Tor, imagens que somem, Discord já aberto e como desfazer tudo.">
+<meta name="theme-color" content="#2A1E5C">
+<meta property="og:title" content="Dúvidas — Discord Proxy">
+<meta property="og:description" content="As perguntas mais comuns: Tor, imagens que somem, Discord já aberto e como desfazer tudo.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌎</text></svg>">
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <nav class="nav" aria-label="Navegação principal">
+    <a class="marca" href="/">
+      <span class="marca-ponto" aria-hidden="true"></span>
+      Discord Proxy
+    </a>
+    <div class="nav-links">
+      <a href="/">Início</a>
+      <a href="/como-usar">Como usar</a>
+      <a href="/download">Download</a>
+      <a href="/duvidas" class="ativo" aria-current="page">Dúvidas</a>
+      <a href="/seguranca">Segurança</a>
+      <a class="nav-github" href="https://github.com/ayunaangel/discord-local-proxy">GitHub</a>
+      <a class="botao botao-pequeno" href="/download">Baixar</a>
+    </div>
+  </nav>
+</header>
+
+<main id="conteudo">
+
+<section class="cabeca">
+  <div class="envolve envolve-estreito">
+    <p class="olho">Dúvidas</p>
+    <h1>Perguntas que todo mundo faz.</h1>
+    <p class="chamada">Se a sua não estiver aqui, o programa gera um relatório
+    <code>.txt</code> com o diagnóstico — dá para mandar para quem for te ajudar.</p>
+  </div>
+</section>
+
+<section class="secao">
+  <div class="envolve envolve-estreito">
+    <details><summary>Preciso saber usar terminal?</summary>
+      <p>Não. Você clica no arquivo de início e usa a janela. Os comandos de
+      terminal existem para quem prefere, mas nada depende deles.</p></details>
+
+    <details><summary>Preciso instalar o Tor?</summary>
+      <p>Só se quiser usar a saída pelo Tor. Instale o
+      <a href="https://www.torproject.org/pt-BR/download/">Tor Browser</a> e deixe
+      a pasta em Downloads — o programa acha sozinho e usa apenas a parte de rede,
+      sem abrir navegador nenhum. Você também pode usar um proxy próprio.</p></details>
+
+    <details><summary>A imagem some quando eu envio. Por quê?</summary>
+      <p>Porque a saída está lenta demais. Pelo Tor, enviar 2 MB leva uns 37
+      segundos, e o Discord desiste antes de terminar — sem avisar. A janela do
+      programa avisa quando uma conexão passa de 25 segundos: é esse o sinal.</p>
+      <p>Enquanto precisar mandar arquivos, clique em <b>Encerrar sessão</b> e use
+      o Discord normalmente, ou troque para um proxy mais rápido.</p></details>
+
+    <details><summary>O Discord diz que já está aberto</summary>
+      <p>Feche pelo ícone ao lado do relógio, com o botão direito, não só pela
+      janela. Um Discord vivo ignora a troca de região, por isso o programa recusa
+      continuar.</p></details>
+
+    <details><summary>“O Tor não conseguiu abrir um circuito”</summary>
+      <p>Se você escolheu um país, tente <b>Automático</b>: pode não haver servidor
+      de saída disponível naquele país no momento. Na primeira vez o Tor também
+      demora mais, porque baixa a lista de servidores.</p></details>
+
+    <details><summary>O programa não achou meu Discord</summary>
+      <p>Em <b>Ajustes avançados</b>, informe o caminho do programa. Isso acontece
+      quando o Discord está instalado num lugar fora do comum.</p></details>
+
+    <details><summary>Funciona com Flatpak ou Snap?</summary>
+      <p>A troca de região sim. O ajuste de voz por UDP não: esses formatos isolam
+      bibliotecas externas. O programa detecta e avisa em vez de fingir que
+      funciona.</p></details>
+
+    <details><summary>Posso ser banido por usar?</summary>
+      <p>O programa não automatiza nada dentro do Discord, não altera o cliente e
+      não burla limites da plataforma — ele só muda por onde a conexão passa, como
+      faria uma VPN comum. Ainda assim, quem decide o que é permitido são os termos
+      do Discord; a escolha é sua.</p></details>
+
+    <details><summary>Como eu desfaço tudo?</summary>
+      <p>Feche a janela do programa: o Discord volta a sair pela sua conexão normal
+      na próxima vez que abrir. Para apagar atalhos e componentes, use o comando
+      <code>clean</code>. Nada fica no sistema.</p></details>
+
+    <details><summary>Deu erro e eu não entendi</summary>
+      <p>Clique em <b>Salvar relatório (.txt)</b>. O arquivo vai para a sua Área de
+      Trabalho com o sistema, o Discord encontrado, a configuração e o que
+      aconteceu nas conexões. Sua senha aparece trocada por <code>***</code>.</p></details>
+  </div>
+</section>
+
+</main>
+
+<footer class="rodape">
+  <div class="envolve rodape-grade">
+    <div>
+      <a class="marca" href="/">
+        <span class="marca-ponto" aria-hidden="true"></span>
+        Discord Proxy
+      </a>
+      <p>Projeto independente, de código aberto, licença MIT.
+      Não é afiliado ao Discord.</p>
+    </div>
+    <nav aria-label="Rodapé">
+      <a href="/como-usar">Como usar</a>
+      <a href="/download">Download</a>
+      <a href="/duvidas">Dúvidas</a>
+      <a href="/seguranca">Segurança</a>
+      <a href="https://github.com/ayunaangel/discord-local-proxy">Código-fonte</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="/script.js"></script>
+</body>
+</html>

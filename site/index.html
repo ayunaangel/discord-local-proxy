@@ -7,12 +7,12 @@
 <meta name="description" content="Faz o Discord sair por outro país e recupera a câmera e o compartilhamento de tela. Grátis, código aberto, para Windows e Linux.">
 <meta name="theme-color" content="#2A1E5C">
 <meta property="og:title" content="Discord Proxy — sua câmera e sua tela de volta">
-<meta property="og:description" content="Câmera e compartilhamento de tela bloqueados na sua região? Este programa faz o Discord sair por outro país. Só o Discord.">
+<meta property="og:description" content="Faz o Discord sair por outro país e recupera a câmera e o compartilhamento de tela. Grátis, código aberto, para Windows e Linux.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌎</text></svg>">
 </head>
 <body>
@@ -21,16 +21,18 @@
 
 <header class="topo">
   <nav class="nav" aria-label="Navegação principal">
-    <a class="marca" href="#inicio">
+    <a class="marca" href="/">
       <span class="marca-ponto" aria-hidden="true"></span>
       Discord Proxy
     </a>
     <div class="nav-links">
-      <a href="#problema">Para quem é</a>
-      <a href="#passos">Como usar</a>
-      <a href="#duvidas">Dúvidas</a>
+      <a href="/" class="ativo" aria-current="page">Início</a>
+      <a href="/como-usar">Como usar</a>
+      <a href="/download">Download</a>
+      <a href="/duvidas">Dúvidas</a>
+      <a href="/seguranca">Segurança</a>
       <a class="nav-github" href="https://github.com/ayunaangel/discord-local-proxy">GitHub</a>
-      <a class="botao botao-pequeno" href="#baixar">Baixar</a>
+      <a class="botao botao-pequeno" href="/download">Baixar</a>
     </div>
   </nav>
 </header>
@@ -49,11 +51,11 @@
         programa faz o Discord — <strong>e só ele</strong> — sair por outro país.
       </p>
       <div class="hero-acoes">
-        <a class="botao botao-grande" href="#baixar" id="botao-principal">
+        <a class="botao botao-grande" href="/download" id="botao-principal">
           <span id="botao-principal-texto">Baixar agora</span>
           <span class="botao-sub" id="botao-principal-sub">grátis, sem cadastro</span>
         </a>
-        <a class="botao botao-vazado botao-grande" href="#passos">Ver como funciona</a>
+        <a class="botao botao-vazado botao-grande" href="/como-usar">Ver como funciona</a>
       </div>
       <ul class="hero-marcas">
         <li>Não mexe no resto do computador</li>
@@ -123,171 +125,21 @@
   </div>
 </section>
 
-<section class="secao secao-escura" id="passos">
+<section class="secao secao-escura">
   <div class="envolve">
-    <p class="olho">Como usar</p>
-    <h2>Três passos. Sem terminal.</h2>
+    <p class="olho">Em resumo</p>
+    <h2>Três passos e pronto.</h2>
     <ol class="passos">
-      <li>
-        <span class="passo-numero">1</span>
-        <h3>Baixe e extraia</h3>
-        <p>Extraia o arquivo inteiro numa pasta. No Windows, clique duas vezes em
-        <code>INICIAR-WINDOWS.cmd</code>. No Linux, em <code>INICIAR-LINUX.sh</code>.</p>
-      </li>
-      <li>
-        <span class="passo-numero">2</span>
-        <h3>Escolha de onde sair</h3>
-        <p>Na lista, escolha <b>Tor</b> e um país. O programa liga o Tor sozinho,
-        escondido. Se você tiver um proxy próprio, também dá para usar.</p>
-      </li>
-      <li>
-        <span class="passo-numero">3</span>
-        <h3>Feche o Discord e clique em abrir</h3>
-        <p>Feche o Discord por inteiro, inclusive o ícone ao lado do relógio.
-        Clique em <b>Abrir o Discord</b> e deixe a janela do programa aberta.</p>
-      </li>
+      <li><span class="passo-numero">1</span><h3>Baixe e extraia</h3>
+        <p>Um arquivo compactado. Nada de instalador.</p></li>
+      <li><span class="passo-numero">2</span><h3>Escolha o país</h3>
+        <p>O programa liga o Tor sozinho, escondido.</p></li>
+      <li><span class="passo-numero">3</span><h3>Abra o Discord por ele</h3>
+        <p>Feche o Discord antes e clique no botão.</p></li>
     </ol>
     <p class="passos-nota">
-      Deu algo errado? O programa tem um botão que gera um relatório
-      <code>.txt</code> explicando o que aconteceu — sem incluir sua senha.
+      <a class="botao botao-claro" href="/como-usar">Ver o passo a passo completo</a>
     </p>
-  </div>
-</section>
-
-<section class="secao" id="baixar">
-  <div class="envolve">
-    <p class="olho">Download</p>
-    <h2>Baixe e use hoje.</h2>
-    <p class="secao-chamada">Nada de instalador, nada de cadastro. Extraia e abra.</p>
-
-    <div class="downloads">
-      <a class="download" id="dl-windows" href="https://github.com/ayunaangel/discord-local-proxy/releases/latest/download/DiscordProxy-Windows-x64.zip">
-        <span class="download-so" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M3 5.5l7.5-1v7H3v-6zM11.5 4.3L21 3v8.5h-9.5v-7.2zM3 12.5h7.5v7L3 18.5v-6zM11.5 12.5H21V21l-9.5-1.3v-7.2z"/></svg>
-        </span>
-        <span class="download-texto">
-          <b>Baixar para Windows</b>
-          <span>x64 · arquivo .zip</span>
-        </span>
-        <span class="download-seta" aria-hidden="true">↓</span>
-      </a>
-
-      <a class="download" id="dl-linux" href="https://github.com/ayunaangel/discord-local-proxy/releases/latest/download/DiscordProxy-Linux-x64.tar.gz">
-        <span class="download-so" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 2c2.2 0 3.5 1.8 3.5 4.2 0 1.6.4 2.4 1.4 3.9 1.2 1.8 2.1 3.2 2.1 5.1 0 2.6-1.6 4.3-3.2 4.3-1 0-1.4-.4-2-1-.5.4-1.1.6-1.8.6s-1.3-.2-1.8-.6c-.6.6-1 1-2 1-1.6 0-3.2-1.7-3.2-4.3 0-1.9.9-3.3 2.1-5.1 1-1.5 1.4-2.3 1.4-3.9C8.5 3.8 9.8 2 12 2z"/></svg>
-        </span>
-        <span class="download-texto">
-          <b>Baixar para Linux</b>
-          <span>x64 · arquivo .tar.gz</span>
-        </span>
-        <span class="download-seta" aria-hidden="true">↓</span>
-      </a>
-
-      <a class="download download-fonte" href="https://github.com/ayunaangel/discord-local-proxy">
-        <span class="download-so" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M9 18l-5-6 5-6M15 6l5 6-5 6"/></svg>
-        </span>
-        <span class="download-texto">
-          <b>Ver o código-fonte</b>
-          <span>tudo aberto, licença MIT</span>
-        </span>
-        <span class="download-seta" aria-hidden="true">→</span>
-      </a>
-    </div>
-
-    <p class="downloads-nota">
-      <a href="https://github.com/ayunaangel/discord-local-proxy/releases">Todas as versões e notas de lançamento</a>
-      · No Linux você precisa do Tk instalado
-      (<code>sudo dnf install python3-tkinter</code> ou
-      <code>sudo apt install python3-tk</code>) se for rodar pelo código-fonte.
-    </p>
-  </div>
-</section>
-
-<section class="secao secao-clara" id="honesto">
-  <div class="envolve">
-    <p class="olho">Sem enrolação</p>
-    <h2>O que este programa <span class="destaque">não</span> é.</h2>
-    <div class="honesto-grade">
-      <div>
-        <h3>Não é VPN</h3>
-        <p>Só o Discord sai pelo outro país. O resto do computador continua igual —
-        e é isso que a maioria das pessoas quer.</p>
-      </div>
-      <div>
-        <h3>Não é anônimo</h3>
-        <p>Trocar a região não te esconde de ninguém. A conta continua sendo a sua
-        e o servidor de saída vê o seu tráfego do Discord.</p>
-      </div>
-      <div>
-        <h3>Não resolve tudo</h3>
-        <p>Se a limitação vier da conta e não do IP, trocar o país não muda nada. O
-        programa te mostra de onde você está saindo, para você conferir em vez de
-        adivinhar.</p>
-      </div>
-      <div>
-        <h3>Pelo Tor, enviar imagem falha</h3>
-        <p>O Tor é lento para subir arquivos: a imagem simplesmente some. Para
-        conversar e transmitir funciona; para o dia a dia, use um proxy próprio.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="secao" id="duvidas">
-  <div class="envolve envolve-estreito">
-    <p class="olho">Dúvidas</p>
-    <h2>Perguntas que todo mundo faz.</h2>
-
-    <details>
-      <summary>Preciso saber usar terminal?</summary>
-      <p>Não. Você clica no arquivo de início e usa a janela. Os comandos de
-      terminal existem para quem prefere, mas nada depende deles.</p>
-    </details>
-
-    <details>
-      <summary>Preciso instalar o Tor?</summary>
-      <p>Só se quiser usar a saída pelo Tor. Instale o
-      <a href="https://www.torproject.org/pt-BR/download/">Tor Browser</a> e deixe
-      a pasta em Downloads — o programa acha sozinho e usa apenas a parte de rede,
-      sem abrir navegador nenhum. Você também pode usar um proxy próprio.</p>
-    </details>
-
-    <details>
-      <summary>Isso mexe no meu Discord?</summary>
-      <p>Não altera o Discord: nada de modificar arquivos internos, injetar
-      certificado ou desligar verificação de segurança. O programa apenas abre o
-      Discord com uma configuração de rede diferente.</p>
-    </details>
-
-    <details>
-      <summary>Minha senha do proxy fica segura?</summary>
-      <p>Sim. Ela nunca vai para a linha de comando do Discord, nem para atalhos,
-      nem para os registros. O arquivo de configuração fica com permissão só sua,
-      e o relatório de diagnóstico troca a senha por <code>***</code>.</p>
-    </details>
-
-    <details>
-      <summary>Posso ser banido por usar?</summary>
-      <p>O programa não automatiza nada dentro do Discord, não altera o cliente e
-      não burla limites da plataforma — ele só muda por onde a conexão passa, como
-      faria uma VPN comum. Ainda assim, quem decide o que é permitido são os
-      termos do Discord; a escolha é sua.</p>
-    </details>
-
-    <details>
-      <summary>Como eu desfaço tudo?</summary>
-      <p>Feche a janela do programa: o Discord volta a sair pela sua conexão
-      normal na próxima vez que abrir. Para apagar atalhos e componentes, use
-      <code>clean</code> nos ajustes. Nada fica no sistema.</p>
-    </details>
-
-    <details>
-      <summary>Funciona no macOS?</summary>
-      <p>A troca de região funciona. O ajuste de voz por UDP, não: o macOS ignora
-      bibliotecas injetadas em aplicativos assinados, e o programa avisa isso na
-      cara em vez de fingir que funciona.</p>
-    </details>
   </div>
 </section>
 
@@ -295,7 +147,7 @@
   <div class="envolve">
     <h2>Leva dois minutos.</h2>
     <p>Baixe, extraia, escolha um país e abra o Discord.</p>
-    <a class="botao botao-grande botao-claro" href="#baixar">Baixar o programa</a>
+    <a class="botao botao-grande botao-claro" href="/download">Baixar o programa</a>
   </div>
 </section>
 
@@ -304,7 +156,7 @@
 <footer class="rodape">
   <div class="envolve rodape-grade">
     <div>
-      <a class="marca" href="#inicio">
+      <a class="marca" href="/">
         <span class="marca-ponto" aria-hidden="true"></span>
         Discord Proxy
       </a>
@@ -312,14 +164,15 @@
       Não é afiliado ao Discord.</p>
     </div>
     <nav aria-label="Rodapé">
-      <a href="#passos">Como usar</a>
-      <a href="#baixar">Download</a>
-      <a href="#duvidas">Dúvidas</a>
+      <a href="/como-usar">Como usar</a>
+      <a href="/download">Download</a>
+      <a href="/duvidas">Dúvidas</a>
+      <a href="/seguranca">Segurança</a>
       <a href="https://github.com/ayunaangel/discord-local-proxy">Código-fonte</a>
     </nav>
   </div>
 </footer>
 
-<script src="script.js"></script>
+<script src="/script.js"></script>
 </body>
 </html>

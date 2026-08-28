@@ -49,7 +49,7 @@
   var rotulos = {
     windows: ["Baixar para Windows", "arquivo .zip · grátis"],
     linux: ["Baixar para Linux", "arquivo .tar.gz · grátis"],
-    mac: ["Baixar o programa", "no macOS, só a troca de região"],
+    mac: ["Ver os downloads", "no macOS, só a troca de região"],
     android: ["Ver os downloads", "o programa é para computador"],
     ios: ["Ver os downloads", "o programa é para computador"]
   };

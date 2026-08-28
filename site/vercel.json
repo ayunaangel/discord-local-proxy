@@ -9,32 +9,17 @@
   "redirects": [
     {
       "source": "/tutorial",
-      "destination": "/#passos",
+      "destination": "/como-usar",
       "permanent": false
     },
     {
       "source": "/recursos",
-      "destination": "/#problema",
-      "permanent": false
-    },
-    {
-      "source": "/download",
-      "destination": "/#baixar",
-      "permanent": false
-    },
-    {
-      "source": "/duvidas",
-      "destination": "/#duvidas",
-      "permanent": false
-    },
-    {
-      "source": "/seguranca",
-      "destination": "/#honesto",
+      "destination": "/como-usar",
       "permanent": false
     },
     {
       "source": "/voz-e-tela",
-      "destination": "/#duvidas",
+      "destination": "/seguranca",
       "permanent": false
     },
     {
