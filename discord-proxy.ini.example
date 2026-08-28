@@ -1,0 +1,28 @@
+; Copie este arquivo como discord-proxy.ini.
+;
+; Windows: %LOCALAPPDATA%\discord-proxy\discord-proxy.ini
+; Linux:   ~/.local/share/discord-proxy/discord-proxy.ini
+; macOS:   ~/Library/Application Support/discord-proxy/discord-proxy.ini
+;
+; Ele também pode ficar ao lado do Discord.exe, como no drover.
+
+[discord-proxy]
+
+; Vazio = modo direto: nenhum proxy, só o ajuste de voz.
+;   http://127.0.0.1:8080
+;   socks5://127.0.0.1:1080
+;   socks5://usuario:senha@servidor.exemplo:1080
+;   socks5://usuario:${MINHA_SENHA}@servidor.exemplo:1080   (lê do ambiente)
+proxy =
+
+; Ajuste de voz por UDP. on/off.
+voice = on
+
+; Pausa em milissegundos entre o preparo e o pacote real. 0 a 1000.
+delay = 50
+
+; Arquivo .bin opcional enviado antes do preparo. Não vem no projeto.
+packet =
+
+; Caminho manual do executável do Discord. Vazio = detectar sozinho.
+discord =

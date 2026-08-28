@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "discord-proxy"
+version = "1.0.0"
+description = "Proxy HTTP/SOCKS5 e ajuste de voz aplicados só ao Discord, sem mexer no sistema"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "ayunaangel" }]
+keywords = ["discord", "proxy", "socks5", "voz", "udp"]
+classifiers = [
+    "Environment :: X11 Applications",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Internet :: Proxy Servers",
+]
+dependencies = []
+
+[project.scripts]
+discord-proxy = "discord_proxy.cli:main"
+
+[project.urls]
+Repositório = "https://github.com/ayunaangel/discord-local-proxy"
+
+[tool.setuptools]
+packages = ["discord_proxy"]
+
+[tool.setuptools.package-data]
+discord_proxy = ["native/*"]

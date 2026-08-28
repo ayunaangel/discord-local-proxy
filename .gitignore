@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+build/
+dist/
+release/
+*.egg-info/
+*.so
+*.dll
+*.bin
+discord-proxy.ini
+.venv/
