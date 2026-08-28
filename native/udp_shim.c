@@ -288,16 +288,45 @@ static int directory_of(HMODULE module, char *destination, int capacity) {
 static HMODULE g_self_module = NULL;
 #endif
 
+/*
+ * No Windows, `getenv` devolve a variável convertida para a codepage ANSI —
+ * um caminho com acento (bem provável no nome do usuário) chegaria corrompido.
+ * Por isso lemos a versão wide e convertemos para UTF-8 nós mesmos.
+ */
+static const char *read_env(const char *name, char *buffer, size_t capacity) {
+#ifdef _WIN32
+    wchar_t wide_name[128];
+    const wchar_t *value;
+    if (MultiByteToWideChar(CP_UTF8, 0, name, -1, wide_name, 128) == 0) {
+        return NULL;
+    }
+    value = _wgetenv(wide_name);
+    if (value == NULL || *value == L'\0') {
+        return NULL;
+    }
+    if (WideCharToMultiByte(CP_UTF8, 0, value, -1, buffer, (int)capacity, NULL, NULL) == 0) {
+        return NULL;
+    }
+    return buffer;
+#else
+    const char *value = getenv(name);
+    (void)buffer;
+    (void)capacity;
+    return (value != NULL && *value != '\0') ? value : NULL;
+#endif
+}
+
 static void load_config(void) {
     struct shim_config config = {1, 50u, {0}};
+    char env_buffer[4096];
     const char *from_env;
     char candidate[4352];
 
 #ifdef _WIN32
     char directory[4096];
     int loaded = 0;
-    from_env = getenv("DISCORD_PROXY_INI");
-    if (from_env != NULL && *from_env != '\0') {
+    from_env = read_env("DISCORD_PROXY_INI", env_buffer, sizeof(env_buffer));
+    if (from_env != NULL) {
         loaded = load_ini_from(from_env, &config);
     }
     if (!loaded && directory_of(g_self_module, directory, (int)sizeof(directory))) {
@@ -313,20 +342,20 @@ static void load_config(void) {
         (void)load_ini_from(candidate, &config);
     }
 #else
-    from_env = getenv("DISCORD_PROXY_INI");
-    if (from_env != NULL && *from_env != '\0') {
+    from_env = read_env("DISCORD_PROXY_INI", env_buffer, sizeof(env_buffer));
+    if (from_env != NULL) {
         (void)load_ini_from(from_env, &config);
     }
     (void)candidate;
 #endif
 
     /* As variáveis de ambiente vêm do launcher e têm a última palavra. */
-    from_env = getenv("DISCORD_PROXY_VOICE");
+    from_env = read_env("DISCORD_PROXY_VOICE", env_buffer, sizeof(env_buffer));
     config.voice = parse_switch(from_env, config.voice);
-    from_env = getenv("DISCORD_PROXY_DELAY");
+    from_env = read_env("DISCORD_PROXY_DELAY", env_buffer, sizeof(env_buffer));
     config.delay_ms = parse_delay(from_env, config.delay_ms);
-    from_env = getenv("DISCORD_PROXY_PACKET");
-    if (from_env != NULL && *from_env != '\0' && strlen(from_env) < sizeof(config.packet)) {
+    from_env = read_env("DISCORD_PROXY_PACKET", env_buffer, sizeof(env_buffer));
+    if (from_env != NULL && strlen(from_env) < sizeof(config.packet)) {
         memcpy(config.packet, from_env, strlen(from_env) + 1u);
     }
 

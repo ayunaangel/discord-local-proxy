@@ -7,6 +7,7 @@ antes dele. Se `build/libdiscordproxy.so` não existir, o teste é pulado — ro
 """
 
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -82,6 +83,20 @@ class NativeShim(unittest.TestCase):
         )
         self.assertEqual(received[0], b"OLA-MUNDO")
         self.assertEqual(received[1:3], [b"\x00", b"\x01"])
+
+    def test_accented_path_survives(self):
+        directory = tempfile.mkdtemp(prefix="ação-çãõ-")
+        self.addCleanup(shutil.rmtree, directory, True)
+        packet_path = Path(directory) / "pacote-início.bin"
+        packet_path.write_bytes(b"ACENTO")
+        received = self._send_with_shim(
+            {
+                "DISCORD_PROXY_VOICE": "1",
+                "DISCORD_PROXY_DELAY": "1",
+                "DISCORD_PROXY_PACKET": str(packet_path),
+            }
+        )
+        self.assertEqual(received[0], b"ACENTO")
 
     def test_config_file_is_read_when_there_is_no_environment_override(self):
         with tempfile.NamedTemporaryFile("w", suffix=".ini", delete=False) as handle:
