@@ -56,7 +56,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     config_command = subcommands.add_parser("config", help="lê ou grava a configuração")
     config_command.add_argument("--config", type=Path, help="caminho do arquivo")
-    config_command.add_argument("--proxy", help="define o proxy (vazio = modo direto)")
+    config_command.add_argument(
+        "--proxy",
+        help="define a saída: vazio = daqui mesmo, 'tor' = Tor embutido, ou uma URL",
+    )
+    config_command.add_argument(
+        "--pais", help="país de saída do Tor (us, nl, de…); vazio = automático"
+    )
+    config_command.add_argument("--tor", type=Path, help="pasta do Tor Browser")
+    config_command.add_argument("--discord", type=Path, help="caminho do executável do Discord")
     config_command.add_argument(
         "--voice", choices=("on", "off"), help="liga ou desliga o ajuste de voz"
     )
@@ -130,7 +138,7 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
     if command == "test":
         config = load_or_default(_path_for(arguments))
         result = bridge_module.test_proxy(config.proxy)
-        print(f"{config.proxy.label}: {result.message}")
+        print(f"{config.exit_label}: {result.message}")
         return 0 if result.ok else 1
 
     if command == "plan":
@@ -185,6 +193,7 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
             explicit_config=arguments.config,
             wait=False if arguments.no_wait else None,
             on_started=announce,
+            on_step=lambda texto: print(texto, flush=True),
         )
         return 0
 
@@ -211,7 +220,19 @@ def _config(arguments: argparse.Namespace) -> int:
     updates: dict[str, object] = {}
 
     if arguments.proxy is not None:
-        updates["proxy"] = parse_proxy(arguments.proxy)
+        texto = arguments.proxy.strip()
+        if texto.lower() == "tor":
+            updates["use_tor"] = True
+            updates["proxy"] = parse_proxy("")
+        else:
+            updates["use_tor"] = False
+            updates["proxy"] = parse_proxy(texto)
+    if arguments.pais is not None:
+        updates["country"] = _country(arguments.pais)
+    if arguments.tor is not None:
+        updates["tor_path"] = arguments.tor
+    if arguments.discord is not None:
+        updates["executable"] = arguments.discord
     if arguments.voice is not None:
         updates["voice"] = arguments.voice == "on"
     if arguments.delay is not None:
@@ -342,16 +363,43 @@ def _region(arguments: argparse.Namespace) -> int:
 
 def _exit_ip(arguments: argparse.Namespace) -> int:
     config = load_or_default(_path_for(arguments))
-    print(f"Consultando {region_module.LOOKUP_HOST} através de: {config.proxy.label}")
+    print(f"Consultando pela saída: {config.exit_label}")
+    processo = None
     try:
-        place = region_module.exit_address(config.proxy)
-    except (OSError, ValueError, bridge_module.ProxyError) as exc:
+        proxy = config.proxy
+        if config.use_tor:
+            print("  ligando o Tor…")
+            processo = tor_module.start(
+                country=config.country,
+                extra_path=config.tor_path,
+                on_progress=lambda pct, etapa: print(f"  Tor {pct}%", flush=True)
+                if pct in (50, 100)
+                else None,
+            )
+            proxy = parse_proxy(processo.proxy_url)
+        place = region_module.exit_address(proxy)
+    except (OSError, ValueError, bridge_module.ProxyError, tor_module.TorError) as exc:
         print(f"não deu para consultar: {exc}", file=sys.stderr)
         return 1
+    finally:
+        if processo is not None:
+            processo.stop()
     print(f"  {place}")
-    if not config.proxy.enabled:
-        print("\nEste é o seu IP de verdade — não há proxy configurado.")
+    if not config.has_exit:
+        print("\nEste é o seu IP de verdade — nenhuma saída está configurada.")
     return 0
+
+
+def _country(text: str) -> str:
+    code = (text or "").strip().lower()
+    if code and code not in tor_module.COUNTRIES:
+        conhecidos = ", ".join(sorted(c for c in tor_module.COUNTRIES if c))
+        print(
+            f"aviso: '{code}' não está na lista conhecida ({conhecidos}); "
+            "vou tentar assim mesmo.",
+            file=sys.stderr,
+        )
+    return code
 
 
 def _shortcut(arguments: argparse.Namespace) -> int:
