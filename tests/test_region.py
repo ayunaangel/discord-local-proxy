@@ -176,3 +176,57 @@ class Places(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BridgeJournal(unittest.TestCase):
+    """Com proxy, o destino da mídia vem da ponte — com nome e tudo."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.journal = Path(self.directory.name) / "bridge-targets.txt"
+        self.previous_journal = region_module.journal_path
+        self.previous_state = region_module.state_path
+        region_module.journal_path = lambda: self.journal
+        region_module.state_path = lambda: Path(self.directory.name) / "nao-existe"
+
+    def tearDown(self):
+        region_module.journal_path = self.previous_journal
+        region_module.state_path = self.previous_state
+        self.directory.cleanup()
+
+    def test_only_media_servers_count(self):
+        self.journal.write_text(
+            "cdn.discordapp.com:443\n"
+            "rotterdam1234.discord.media:443\n"
+            "discord.com:443\n"
+            "ipinfo.io:443\n"
+        )
+        found = region_module.voice_endpoints()
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].hostname, "rotterdam1234.discord.media")
+        self.assertEqual(found[0].region, "rotterdam")
+
+    def test_most_recent_first(self):
+        self.journal.write_text(
+            "brazil1111.discord.media:443\nrotterdam2222.discord.media:443\n"
+        )
+        self.assertEqual(
+            [item.region for item in region_module.voice_endpoints()], ["rotterdam", "brazil"]
+        )
+
+    def test_repeated_targets_appear_once(self):
+        self.journal.write_text("brazil1111.discord.media:443\n" * 8)
+        self.assertEqual(len(region_module.voice_endpoints()), 1)
+
+    def test_the_journal_wins_over_the_other_sources(self):
+        state = Path(self.directory.name) / "voice-endpoint.txt"
+        state.write_text("93.184.216.34:50007\n")
+        region_module.state_path = lambda: state
+        self.journal.write_text("rotterdam1234.discord.media:443\n")
+        found = region_module.voice_endpoints()
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].region, "rotterdam")
+
+    def test_text_shows_name_and_region(self):
+        self.journal.write_text("brazil1111.discord.media:443\n")
+        self.assertIn("brazil1111.discord.media:443 — brazil", str(region_module.voice_endpoints()[0]))

@@ -16,6 +16,7 @@ import socketserver
 import struct
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from .config import Proxy
@@ -60,10 +61,11 @@ def test_proxy(proxy: Proxy, host: str = "discord.com", port: int = 443) -> Prob
 class Bridge:
     """Servidor de loopback com ciclo de vida ligado ao do Discord."""
 
-    def __init__(self, proxy: Proxy):
+    def __init__(self, proxy: Proxy, *, journal: "Path | None" = None):
         if not proxy.enabled:
             raise ProxyError("a ponte local só faz sentido com um proxy configurado")
         self.proxy = proxy
+        self.journal = journal
         self._server: _Server | None = None
         self._thread: threading.Thread | None = None
 
@@ -79,7 +81,7 @@ class Bridge:
 
     def start(self) -> "Bridge":
         if self._server is None:
-            self._server = _Server(self.proxy)
+            self._server = _Server(self.proxy, journal=self.journal)
             self._thread = threading.Thread(
                 target=self._server.serve_forever,
                 name="discord-proxy-bridge",
@@ -110,9 +112,26 @@ class _Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
     request_queue_size = 64
 
-    def __init__(self, proxy: Proxy):
+    def __init__(self, proxy: Proxy, *, journal: "Path | None" = None):
         self.proxy = proxy
+        self.journal = journal
+        self.journal_lock = threading.Lock()
         super().__init__(("127.0.0.1", 0), _Handler)
+
+    def note_target(self, host: str, port: int) -> None:
+        """Anota o destino de cada túnel.
+
+        Quando há proxy, o WebRTC do Discord também passa por aqui — é assim
+        que dá para saber com qual servidor de mídia a chamada está falando,
+        pelo nome que o próprio cliente pediu.
+        """
+        if self.journal is None:
+            return
+        try:
+            with self.journal_lock, self.journal.open("a", encoding="utf-8") as handle:
+                handle.write(f"{host}:{port}\n")
+        except OSError:
+            pass
 
 
 class _Handler(socketserver.BaseRequestHandler):
@@ -133,6 +152,7 @@ class _Handler(socketserver.BaseRequestHandler):
 
     def _tunnel(self, client: socket.socket, target: str, extra: bytes) -> None:
         host, port = _split_authority(target, 443)
+        self.server.note_target(host, port)
         upstream, leftover = open_tunnel(self.server.proxy, host, port)
         try:
             client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")

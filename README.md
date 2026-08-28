@@ -53,16 +53,25 @@ O Discord decide qual servidor de voz te dar durante o handshake do gateway, que
 naquele país e devolve um servidor de lá. A partir daí, voz, câmera e Go Live
 falam com esse servidor.
 
-Duas consequências que valem saber de antemão:
+**Com o proxy ligado, a mídia também passa por ele.** Isso foi medido: com um
+proxy configurado, o Discord não abre um único socket UDP — o WebRTC cai para
+TCP/TLS e voz, câmera e tela sobem pelo mesmo túnel. Numa transmissão de tela de
+teste, 13 MB subiram pela ponte e a tabela UDP do sistema ficou vazia.
 
-- **A mídia não passa pelo proxy.** O áudio e o vídeo saem do seu IP real,
-  direto para o servidor da região nova. Isto não é uma VPN e não esconde o seu
-  IP de ninguém — só muda com qual servidor você conversa.
-- **Se a decisão não for pelo IP, isto não resolve.** Se o que limita o recurso
-  for a conta e não a região de rede, trocar a saída não muda nada. O jeito de
-  saber é medir: `exit-ip` mostra o país que você passou a apresentar, `region`
-  mostra para onde a chamada foi. Se os dois mudarem e o recurso continuar
-  indisponível, a decisão não é pelo IP.
+Duas consequências:
+
+- No modo com proxy, o seu IP não aparece para o servidor de mídia. Ainda assim,
+  **isto não é uma VPN**: só o Discord sai por ali, e o proxy vê o volume do seu
+  tráfego. No modo direto (sem proxy), a mídia volta a sair por UDP do seu IP.
+- Como a mídia divide o túnel com o resto, a qualidade depende da banda e da
+  latência do proxy. Um circuito Tor costuma ser ruim para vídeo; uma VPS
+  própria, não.
+
+**Se a decisão não for pelo IP, isto não resolve.** Se o que limita o recurso for
+a conta e não a região de rede, trocar a saída não muda nada. O jeito de saber é
+medir: `exit-ip` mostra o país que você passou a apresentar, `region` mostra para
+onde a chamada foi. Se os dois mudarem e o recurso continuar indisponível, a
+decisão não é pelo IP.
 
 ## Confirmar que funcionou
 
@@ -77,14 +86,24 @@ python -m discord_proxy region
 ```
 
 Com uma chamada em andamento, mostra o servidor em uso — algo como
-`162.159.x.x:50003 (rotterdam)`. O nome sai do DNS reverso; quando ele não vem,
-`--online` pergunta o país a um serviço externo.
+`rotterdam1234.discord.media:443 — rotterdam`. A região sai do próprio nome do
+servidor.
 
-No Linux isso é lido do próprio kernel e não precisa de nada instalado. No
-Windows depende do componente nativo, que só está ativo com `voice = on`.
+De onde vem essa informação, em ordem:
 
-Os dois comandos consultam `ipinfo.io` e só rodam quando você os chama — nada
-disso acontece sozinho ao abrir o Discord.
+1. **Com proxy** — da ponte, que vê o nome que o Discord pediu. Funciona em
+   qualquer sistema e é a fonte mais precisa.
+2. **Sem proxy, no Linux** — do `/proc`, cruzando os sockets UDP do Discord com
+   a tabela do kernel. Não precisa de nada instalado.
+3. **Sem proxy, no Windows** — do componente nativo, que só está ativo com
+   `voice = on`.
+
+Quando só há IP e nenhum nome, `--online` pergunta o país a um serviço externo.
+
+O `exit-ip` consulta um serviço externo (`ipinfo.io`, com `ifconfig.co` e
+`check.torproject.org` de reserva — o primeiro recusa saídas do Tor) e só roda
+quando você o chama. O `region` não consulta nada, a menos que você peça
+`--online`.
 
 ## Configuração
 
@@ -222,7 +241,8 @@ python -m unittest discover -s tests -t .
 
 ## O que isto não é
 
-- Não é VPN. A voz, a câmera e a tela saem do seu IP real.
+- Não é VPN. Só o Discord sai pelo proxy; o resto do computador, não. No modo
+  direto (sem proxy), a mídia sai do seu IP real por UDP.
 - Não desliga verificação de TLS, não mexe no `app.asar`, não injeta
   certificado e não contém código do Discord.
 - Não precisa de administrador, root nem driver. Tudo é por usuário e reversível

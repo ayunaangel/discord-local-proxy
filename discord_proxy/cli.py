@@ -136,16 +136,26 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         return _clean()
 
     if command == "run":
-        result = run_module.launch(
+
+        def announce(started: run_module.Result) -> None:
+            proxy = "com proxy" if started.proxy_used else "sem proxy"
+            voice = "com ajuste de voz" if started.voice_used else "sem ajuste de voz"
+            print(f"Discord aberto ({proxy}, {voice}). pid {started.pid}", flush=True)
+            if started.note:
+                print(f"aviso: {started.note}", file=sys.stderr, flush=True)
+            if started.proxy_used:
+                print(
+                    "Deixe este terminal aberto: a ponte local vive aqui e o "
+                    "Discord perde o proxy se ela fechar.",
+                    flush=True,
+                )
+
+        run_module.launch(
             arguments.channel,
             explicit_config=arguments.config,
             wait=False if arguments.no_wait else None,
+            on_started=announce,
         )
-        proxy = "com proxy" if result.proxy_used else "sem proxy"
-        voice = "com ajuste de voz" if result.voice_used else "sem ajuste de voz"
-        print(f"Discord aberto ({proxy}, {voice}). pid {result.pid}")
-        if result.note:
-            print(f"aviso: {result.note}", file=sys.stderr)
         return 0
 
     raise AssertionError(f"comando não tratado: {command}")

@@ -31,13 +31,27 @@ from .discord import Install
 from .voice import data_root
 
 STATE_NAME = "voice-endpoint.txt"
+JOURNAL_NAME = "bridge-targets.txt"
+# Nome dos servidores de mídia do Discord — voz, câmera e tela passam por eles.
+MEDIA_SUFFIX = ".discord.media"
 # O Chromium também fala UDP em 443 (QUIC) e 80; isso não é voz.
 WEB_PORTS = frozenset({80, 443, 8080})
 # Faixa que o Discord usa para os servidores de voz.
 VOICE_PORT_RANGE = range(50000, 65536)
-LOOKUP_HOST = "ipinfo.io"
+# Nem todo serviço aceita conexão vinda do Tor; tentamos na ordem. O último
+# não diz o país, mas confirma se a saída é mesmo do Tor.
+LOOKUP_SERVICES = (
+    ("ipinfo.io", "/json", "/{address}/json"),
+    ("ifconfig.co", "/json", "/json?ip={address}"),
+    ("check.torproject.org", "/api/ip", ""),
+)
+LOOKUP_HOST = LOOKUP_SERVICES[0][0]
 RESOLVE_TIMEOUT = 3.0
 LOOKUP_TIMEOUT = 8.0
+
+
+class LookupFailed(OSError):
+    """Nenhum dos serviços de consulta respondeu."""
 
 
 @dataclass(frozen=True)
@@ -58,8 +72,11 @@ class Endpoint:
         return name or label
 
     def __str__(self) -> str:
-        where = self.region or self.hostname or "região desconhecida"
-        return f"{self.address}:{self.port} ({where})"
+        where = self.region or "região desconhecida"
+        who = self.hostname or self.address
+        if self.address and self.hostname:
+            who = f"{self.hostname} ({self.address})"
+        return f"{who}:{self.port} — {where}"
 
 
 @dataclass(frozen=True)
@@ -83,8 +100,21 @@ def state_path() -> Path:
     return data_root() / STATE_NAME
 
 
+def journal_path() -> Path:
+    """Arquivo onde a ponte anota os destinos dos túneis que abriu."""
+    return data_root() / JOURNAL_NAME
+
+
 def voice_endpoints(install: Install | None = None, *, resolve: bool = True) -> list[Endpoint]:
-    """Os servidores de voz em uso agora, do mais recente para o mais antigo."""
+    """Os servidores de mídia em uso agora, do mais recente para o mais antigo.
+
+    Com proxy configurado o WebRTC do Discord passa pela ponte, e aí o destino
+    vem com nome e tudo — é a fonte melhor. Sem proxy a mídia sai por UDP, e o
+    destino vem do componente nativo (Windows) ou do /proc (Linux).
+    """
+    found = _from_journal()
+    if found:
+        return found
     found = _from_state_file()
     if not found and sys.platform.startswith("linux"):
         found = _from_proc(install)
@@ -95,17 +125,47 @@ def voice_endpoints(install: Install | None = None, *, resolve: bool = True) -> 
     return found
 
 
+def _from_journal() -> list[Endpoint]:
+    """Os servidores de mídia que a ponte viu, mais recentes primeiro."""
+    try:
+        lines = journal_path().read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    found: list[Endpoint] = []
+    for line in reversed(lines[-4096:]):
+        host, _, port = line.strip().rpartition(":")
+        if not host or not port.isdigit() or not host.lower().endswith(MEDIA_SUFFIX):
+            continue
+        endpoint = Endpoint(address="", port=int(port), hostname=host)
+        if endpoint not in found:
+            found.append(endpoint)
+    return found
+
+
 def exit_address(proxy: Proxy) -> Place:
     """O IP que o proxy apresenta ao mundo — consulta um serviço externo."""
-    body = _https_get_json(LOOKUP_HOST, "/json", proxy=proxy if proxy.enabled else None)
-    return _place_from(body)
+    upstream = proxy if proxy.enabled else None
+    problems: list[str] = []
+    for host, path, _ in LOOKUP_SERVICES:
+        try:
+            return _place_from(_https_get_json(host, path, proxy=upstream))
+        except (OSError, ValueError) as exc:
+            problems.append(f"{host}: {exc}")
+    raise LookupFailed("; ".join(problems))
 
 
 def locate(address: str) -> Place:
     """Onde fica um IP — consulta um serviço externo."""
     ipaddress.ip_address(address)
-    body = _https_get_json(LOOKUP_HOST, f"/{address}/json", proxy=None)
-    return _place_from(body)
+    problems: list[str] = []
+    for host, _, template in LOOKUP_SERVICES:
+        if not template:
+            continue
+        try:
+            return _place_from(_https_get_json(host, template.format(address=address), proxy=None))
+        except (OSError, ValueError) as exc:
+            problems.append(f"{host}: {exc}")
+    raise LookupFailed("; ".join(problems))
 
 
 # ------------------------------------------------------------------ destino --
@@ -268,19 +328,39 @@ def _https_get_json(host: str, path: str, *, proxy: Proxy | None) -> dict:
         raw.close()
         raise
     payload = b"".join(chunks)
-    _, _, body = payload.partition(b"\r\n\r\n")
+    head, _, body = payload.partition(b"\r\n\r\n")
+    status = _status_of(head)
     start = body.find(b"{")
     end = body.rfind(b"}")
     if start < 0 or end <= start:
-        raise ValueError("o serviço de consulta respondeu algo que não é JSON")
+        if status and status != 200:
+            raise ValueError(f"respondeu HTTP {status} (o serviço costuma recusar saídas do Tor)")
+        raise ValueError("respondeu algo que não é JSON")
     return json.loads(body[start : end + 1].decode("utf-8", "replace"))
 
 
+def _status_of(head: bytes) -> int:
+    first = head.split(b"\r\n", 1)[0].decode("iso-8859-1", "replace").split(" ")
+    return int(first[1]) if len(first) > 1 and first[1].isdigit() else 0
+
+
+def _first(body: dict, *names: str) -> str:
+    for name in names:
+        value = body.get(name)
+        if value:
+            return str(value)
+    return ""
+
+
 def _place_from(body: dict) -> Place:
-    return Place(
-        address=str(body.get("ip", "")),
-        country=str(body.get("country", "")),
-        region=str(body.get("region", "")),
-        city=str(body.get("city", "")),
-        org=str(body.get("org", "")),
+    """Cada serviço nomeia os campos do seu jeito; aceitamos os três."""
+    place = Place(
+        address=_first(body, "ip", "IP", "query"),
+        country=_first(body, "country", "country_iso", "countryCode"),
+        region=_first(body, "region", "region_name", "regionName"),
+        city=_first(body, "city"),
+        org=_first(body, "org", "asn_org", "isp"),
     )
+    if body.get("IsTor") and not place.country:
+        return Place(address=place.address, country="saída do Tor", org=place.org)
+    return place

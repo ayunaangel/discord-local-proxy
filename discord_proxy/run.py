@@ -7,7 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
 
 from . import bridge as bridge_module
 from . import voice as voice_module
@@ -139,6 +139,7 @@ def launch(
     wait: bool | None = None,
     require_closed: bool = True,
     environ: Mapping[str, str] | None = None,
+    on_started: Callable[[Result], None] | None = None,
 ) -> Result:
     source = dict(os.environ if environ is None else environ)
     probe = detect_channel(channel, environ=source)
@@ -160,7 +161,10 @@ def launch(
             check = bridge_module.test_proxy(config.proxy)
             if not check.ok:
                 raise LaunchError(f"o proxy falhou, então o Discord não foi aberto: {check.message}")
-            bridge = bridge_module.Bridge(config.proxy).start()
+            journal = voice_module.data_root() / "bridge-targets.txt"
+            journal.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            journal.unlink(missing_ok=True)
+            bridge = bridge_module.Bridge(config.proxy, journal=journal).start()
             url = bridge.url
 
         plan = build_plan(
@@ -175,17 +179,23 @@ def launch(
             stderr=subprocess.DEVNULL,
         )
 
-        # Enquanto houver proxy, este processo precisa continuar vivo: a ponte
-        # local morre junto com ele.
-        should_wait = config.proxy.enabled if wait is None else wait
-        exit_code = _wait_for_discord(process, plan.install) if should_wait else None
-        return Result(
+        started = Result(
             pid=process.pid,
-            exit_code=exit_code,
+            exit_code=None,
             proxy_used=config.proxy.enabled,
             voice_used=plan.shim is not None,
             note=plan.voice_note,
         )
+        # Avisa antes de bloquear: com proxy, a espera dura o quanto o Discord
+        # ficar aberto, e quem chamou precisa saber que já subiu.
+        if on_started is not None:
+            on_started(started)
+
+        # Enquanto houver proxy, este processo precisa continuar vivo: a ponte
+        # local morre junto com ele.
+        should_wait = config.proxy.enabled if wait is None else wait
+        exit_code = _wait_for_discord(process, plan.install) if should_wait else None
+        return replace(started, exit_code=exit_code)
     except OSError as exc:
         raise LaunchError(f"não consegui abrir o {install.label}: {exc}") from exc
     finally:

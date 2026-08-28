@@ -216,3 +216,29 @@ class BridgeBasics(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Journal(unittest.TestCase):
+    """A ponte anota o destino de cada túnel que abre."""
+
+    def test_targets_are_recorded(self):
+        import tempfile
+        from pathlib import Path
+
+        upstream = FakeProxy("socks5")
+        upstream.start()
+        self.addCleanup(upstream.close)
+        journal = Path(tempfile.mkdtemp()) / "targets.txt"
+        proxy = parse_proxy(f"socks5://127.0.0.1:{upstream.port}")
+        with bridge_module.Bridge(proxy, journal=journal) as bridge:
+            talk_through(bridge, "rotterdam1234.discord.media:443")
+        self.assertIn("rotterdam1234.discord.media:443", journal.read_text())
+
+    def test_without_a_journal_nothing_is_written(self):
+        upstream = FakeProxy("socks5")
+        upstream.start()
+        self.addCleanup(upstream.close)
+        proxy = parse_proxy(f"socks5://127.0.0.1:{upstream.port}")
+        with bridge_module.Bridge(proxy) as bridge:
+            answer = talk_through(bridge)
+        self.assertIn(b"200 Connection Established", answer)
