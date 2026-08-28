@@ -115,12 +115,23 @@ python build.py
 ```
 
 Só isso. Precisa de `gcc` ou `clang`; nada de CMake, nada baixado durante o
-build. Para gerar o `version.dll` do Windows a partir do Linux:
+build.
+
+Para gerar o `version.dll` do Windows a partir do Linux, há dois caminhos. O
+MinGW do sistema:
 
 ```bash
-sudo dnf install mingw64-gcc     # Fedora
+sudo dnf install mingw64-gcc            # Fedora
 sudo apt install gcc-mingw-w64-x86-64   # Debian/Ubuntu
 python build.py --target windows
+```
+
+Ou, sem instalar nada no sistema, um compilador que vem por pip e gera as duas
+plataformas sozinho:
+
+```bash
+python -m pip install ziglang
+python build.py --all
 ```
 
 Para montar o pacote da página de releases (precisa do PyInstaller):

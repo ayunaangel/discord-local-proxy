@@ -1,8 +1,10 @@
 """Detecção do Discord e montagem do comando, com um sistema de mentira."""
 
 import os
+import socket as socket_module
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -192,3 +194,95 @@ class Shortcuts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipIf(os.name == "nt" or sys.platform == "darwin", "cenário Linux")
+class LaunchEndToEnd(unittest.TestCase):
+    """Abre um 'Discord' de mentira e confere o que ele recebeu."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.home = Path(self.directory.name)
+        self.report = self.home / "recebido.txt"
+        fake = self.home / ".config" / "discord" / "Discord"
+        fake.parent.mkdir(parents=True)
+        fake.write_text(
+            "#!/bin/sh\n"
+            f'{{ echo "ARGS: $@"; echo "LD_PRELOAD=$LD_PRELOAD";'
+            f' echo "VOICE=$DISCORD_PROXY_VOICE"; }} > "{self.report}"\n'
+        )
+        fake.chmod(0o755)
+        make_executable(self.home / "bin" / "discord")
+        self.environ = {
+            "HOME": str(self.home),
+            "PATH": str(self.home / "bin"),
+            "XDG_DATA_HOME": str(self.home / ".local" / "share"),
+        }
+        self.config_path = self.home / "discord-proxy.ini"
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def _wait_for_report(self) -> str:
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if self.report.is_file():
+                text = self.report.read_text()
+                if text.count("\n") >= 3:
+                    return text
+            time.sleep(0.05)
+        self.fail("o executável de mentira não registrou nada")
+
+    def test_direct_mode_starts_the_executable(self):
+        config_module.save(self.config_path, config_module.Config(voice=False))
+        result = run_module.launch(
+            "stable",
+            explicit_config=self.config_path,
+            wait=False,
+            environ=self.environ,
+        )
+        self.assertFalse(result.proxy_used)
+        recorded = self._wait_for_report()
+        self.assertIn("ARGS: \n", recorded)
+        self.assertIn("LD_PRELOAD=\n", recorded)
+        self.assertIn("VOICE=0", recorded)
+
+    def test_proxy_mode_passes_the_bridge_url(self):
+        from tests.test_bridge import FakeProxy
+
+        upstream = FakeProxy("socks5")
+        upstream.start()
+        self.addCleanup(upstream.close)
+        config_module.save(
+            self.config_path,
+            config_module.Config(
+                proxy=config_module.parse_proxy(f"socks5://127.0.0.1:{upstream.port}"),
+                voice=False,
+            ),
+        )
+        result = run_module.launch(
+            "stable",
+            explicit_config=self.config_path,
+            wait=False,
+            environ=self.environ,
+        )
+        self.assertTrue(result.proxy_used)
+        recorded = self._wait_for_report()
+        self.assertIn("--proxy-server=http://127.0.0.1:", recorded)
+        self.assertIn("--disable-quic", recorded)
+
+    def test_a_broken_proxy_stops_the_launch(self):
+        with socket_module.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            dead = probe.getsockname()[1]
+        config_module.save(
+            self.config_path,
+            config_module.Config(
+                proxy=config_module.parse_proxy(f"socks5://127.0.0.1:{dead}"), voice=False
+            ),
+        )
+        with self.assertRaises(run_module.LaunchError):
+            run_module.launch(
+                "stable", explicit_config=self.config_path, environ=self.environ
+            )
+        self.assertFalse(self.report.exists())

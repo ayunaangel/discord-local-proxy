@@ -7,8 +7,9 @@
     python build.py --all           # os dois, se houver compilador para ambos
 
 No Linux basta o gcc ou o clang. Para gerar o `version.dll` a partir do Linux,
-instale o MinGW: `sudo dnf install mingw64-gcc` (Fedora) ou
-`sudo apt install gcc-mingw-w64-x86-64` (Debian/Ubuntu).
+instale o MinGW (`sudo dnf install mingw64-gcc`) — ou, sem instalar nada no
+sistema, `python -m pip install ziglang`, que traz um compilador capaz de gerar
+as duas plataformas sozinho.
 """
 
 from __future__ import annotations
@@ -35,30 +36,45 @@ class BuildError(RuntimeError):
     pass
 
 
+def _zig() -> list[str] | None:
+    """`zig cc` compila as duas plataformas sem nada instalado no sistema."""
+    found = shutil.which("zig")
+    if found:
+        return [found, "cc"]
+    try:
+        import ziglang  # type: ignore[import-not-found]
+    except ImportError:
+        return None
+    candidate = Path(ziglang.__file__).parent / ("zig.exe" if os.name == "nt" else "zig")
+    return [str(candidate), "cc"] if candidate.is_file() else None
+
+
 def build_linux() -> Path:
-    compiler = _first(["gcc", "clang", "cc"])
-    if compiler is None:
-        raise BuildError(
-            "nenhum compilador C encontrado. Fedora: sudo dnf install gcc · "
-            "Debian/Ubuntu: sudo apt install build-essential"
-        )
     target = OUTPUT / LINUX_NAME
-    _run(
-        [
-            compiler,
-            *WARNINGS,
-            "-std=c99",
-            "-fPIC",
-            "-fvisibility=hidden",
-            "-shared",
-            "-pthread",
-            str(SOURCE),
-            "-o",
-            str(target),
-            "-ldl",
-        ]
+    common = [
+        *WARNINGS,
+        "-std=c99",
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-shared",
+        "-pthread",
+        str(SOURCE),
+        "-o",
+        str(target),
+    ]
+    compiler = _first(["gcc", "clang", "cc"])
+    if compiler is not None:
+        _run([compiler, *common, "-ldl"])
+        return target
+    zig = _zig()
+    if zig is not None:
+        _run([*zig, *common])
+        return target
+    raise BuildError(
+        "nenhum compilador C encontrado. Fedora: sudo dnf install gcc · "
+        "Debian/Ubuntu: sudo apt install build-essential · "
+        "sem tocar no sistema: python -m pip install ziglang"
     )
-    return target
 
 
 def build_windows() -> Path:
@@ -102,10 +118,31 @@ def build_windows() -> Path:
         )
         return target
 
+    zig = _zig()
+    if zig is not None:
+        _run(
+            [
+                *zig,
+                "-target",
+                "x86_64-windows-gnu",
+                *WARNINGS,
+                "-std=c99",
+                "-shared",
+                str(SOURCE),
+                str(DEFINITIONS),
+                "-o",
+                str(target),
+                "-lws2_32",
+                "-lpsapi",
+            ]
+        )
+        return target
+
     raise BuildError(
         "nenhum compilador para Windows encontrado. Instale o MinGW "
-        "(dnf install mingw64-gcc / apt install gcc-mingw-w64-x86-64) ou rode "
-        "este script no Prompt de Comando do Visual Studio."
+        "(dnf install mingw64-gcc / apt install gcc-mingw-w64-x86-64), rode "
+        "este script no Prompt de Comando do Visual Studio, ou instale o "
+        "compilador portátil: python -m pip install ziglang"
     )
 
 
