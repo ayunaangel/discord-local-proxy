@@ -9,3 +9,9 @@ release/
 *.bin
 discord-proxy.ini
 .venv/
+
+# Coisas que ficam só na minha máquina
+backup/
+REVISAO.md
+PUBLICAR.sh
+site/PUBLICAR-SITE.sh
