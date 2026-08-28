@@ -122,6 +122,8 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         proxy = "com proxy" if result.proxy_used else "sem proxy"
         voice = "com ajuste de voz" if result.voice_used else "sem ajuste de voz"
         print(f"Discord aberto ({proxy}, {voice}). pid {result.pid}")
+        if result.note:
+            print(f"aviso: {result.note}", file=sys.stderr)
         return 0
 
     raise AssertionError(f"comando não tratado: {command}")

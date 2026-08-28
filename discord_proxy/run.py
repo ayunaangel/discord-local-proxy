@@ -43,6 +43,7 @@ class Result:
     exit_code: int | None
     proxy_used: bool
     voice_used: bool
+    note: str = ""
 
 
 def config_path(install: Install | None = None, *, explicit: Path | None = None) -> Path:
@@ -104,10 +105,15 @@ def build_plan(
     shim: Path | None = None
     note = ""
     if config.voice:
-        if install.supports_voice:
-            shim = voice_module.install_shim(install)
-        else:
+        if not install.supports_voice:
             note = install.voice_reason
+        else:
+            try:
+                shim = voice_module.install_shim(install)
+            except voice_module.VoiceError as exc:
+                # Sem o componente nativo o Discord ainda abre — só perde o
+                # ajuste de voz. Avisar e seguir é melhor que não abrir nada.
+                note = str(exc)
 
     environment = _environment(source, config, shim, install, path)
     return Plan(
@@ -172,6 +178,7 @@ def launch(
             exit_code=exit_code,
             proxy_used=config.proxy.enabled,
             voice_used=plan.shim is not None,
+            note=plan.voice_note,
         )
     except OSError as exc:
         raise LaunchError(f"não consegui abrir o {install.label}: {exc}") from exc

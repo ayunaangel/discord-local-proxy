@@ -260,6 +260,8 @@ class Window:
             result = run_module.launch(channel, explicit_config=config.path, wait=False)
             proxy = "com proxy" if result.proxy_used else "modo direto"
             voice = "com ajuste de voz" if result.voice_used else "sem ajuste de voz"
+            if result.note:
+                voice += f" ({result.note})"
             if result.proxy_used:
                 return (
                     f"Discord aberto ({proxy}, {voice}), pid {result.pid}. "
