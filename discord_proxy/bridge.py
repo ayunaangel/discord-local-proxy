@@ -13,12 +13,14 @@ import ipaddress
 import select
 import socket
 import socketserver
+import itertools
 import struct
 import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urlsplit
 
 from .config import Proxy
@@ -27,6 +29,10 @@ MAX_HEADER_BYTES = 64 * 1024
 CHUNK = 64 * 1024
 IDLE_SECONDS = 600
 CONNECT_TIMEOUT = 10.0
+# Um túnel aberto mais que isto quase sempre é envio de arquivo agonizando numa
+# saída lenta — o caso em que a imagem some sem o Discord dizer nada.
+SLOW_SECONDS = 25.0
+WATCH_INTERVAL = 5.0
 
 
 class ProxyError(ConnectionError):
@@ -63,11 +69,18 @@ def test_proxy(proxy: Proxy, host: str = "discord.com", port: int = 443) -> Prob
 class Bridge:
     """Servidor de loopback com ciclo de vida ligado ao do Discord."""
 
-    def __init__(self, proxy: Proxy, *, journal: "Path | None" = None):
+    def __init__(
+        self,
+        proxy: Proxy,
+        *,
+        journal: "Path | None" = None,
+        on_slow: "Callable[[str, float], None] | None" = None,
+    ):
         if not proxy.enabled:
             raise ProxyError("a ponte local só faz sentido com um proxy configurado")
         self.proxy = proxy
         self.journal = journal
+        self.on_slow = on_slow
         self._server: _Server | None = None
         self._thread: threading.Thread | None = None
 
@@ -83,7 +96,7 @@ class Bridge:
 
     def start(self) -> "Bridge":
         if self._server is None:
-            self._server = _Server(self.proxy, journal=self.journal)
+            self._server = _Server(self.proxy, journal=self.journal, on_slow=self.on_slow)
             self._thread = threading.Thread(
                 target=self._server.serve_forever,
                 name="discord-proxy-bridge",
@@ -114,11 +127,63 @@ class _Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
     request_queue_size = 64
 
-    def __init__(self, proxy: Proxy, *, journal: "Path | None" = None):
+    def __init__(
+        self,
+        proxy: Proxy,
+        *,
+        journal: "Path | None" = None,
+        on_slow: "Callable[[str, float], None] | None" = None,
+    ):
         self.proxy = proxy
         self.journal = journal
         self.journal_lock = threading.Lock()
+        self.on_slow = on_slow
+        self.open_tunnels: dict[int, tuple[str, float]] = {}
+        self.tunnels_lock = threading.Lock()
+        self._next_id = itertools.count(1)
+        self._stop = threading.Event()
         super().__init__(("127.0.0.1", 0), _Handler)
+        if on_slow is not None:
+            threading.Thread(target=self._watch, name="ponte-vigia", daemon=True).start()
+
+    def begin_tunnel(self, host: str, port: int) -> int:
+        """Registra um túnel aberto para o vigia poder cobrar demora."""
+        identificador = next(self._next_id)
+        with self.tunnels_lock:
+            self.open_tunnels[identificador] = (f"{host}:{port}", time.monotonic())
+        return identificador
+
+    def end_tunnel(self, identificador: int) -> None:
+        with self.tunnels_lock:
+            self.open_tunnels.pop(identificador, None)
+
+    def _watch(self) -> None:
+        """Avisa uma vez por túnel que passou do tempo, enquanto ele ainda vive.
+
+        Esperar o túnel fechar para avisar não serve: o aviso chegaria depois de
+        o usuário já ter desistido do envio.
+        """
+        avisados: set[int] = set()
+        while not self._stop.wait(WATCH_INTERVAL):
+            agora = time.monotonic()
+            with self.tunnels_lock:
+                atuais = dict(self.open_tunnels)
+            for identificador, (destino, inicio) in atuais.items():
+                if identificador in avisados:
+                    continue
+                decorrido = agora - inicio
+                if decorrido >= SLOW_SECONDS:
+                    avisados.add(identificador)
+                    if self.on_slow is not None:
+                        try:
+                            self.on_slow(destino, decorrido)
+                        except Exception:  # noqa: BLE001 - um aviso não derruba a ponte
+                            pass
+            avisados.intersection_update(atuais)
+
+    def server_close(self) -> None:
+        self._stop.set()
+        super().server_close()
 
     def note_target(
         self,
@@ -179,6 +244,7 @@ class _Handler(socketserver.BaseRequestHandler):
             raise
         sent = received = 0
         status = "ok"
+        identificador = self.server.begin_tunnel(host, port)
         try:
             client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             if leftover:
@@ -194,6 +260,7 @@ class _Handler(socketserver.BaseRequestHandler):
             status = f"erro({_clean(exc)})"
             raise
         finally:
+            self.server.end_tunnel(identificador)
             upstream.close()
             self.server.note_target(
                 host,

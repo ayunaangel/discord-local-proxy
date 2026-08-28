@@ -53,6 +53,19 @@ serve bem para conversar e para testar se a troca de região resolve
 o seu caso; para trabalhar o dia todo, use um proxy próprio.
 
 
+SE ALGO TRAVAR
+--------------
+Clique em "Encerrar sessão" na janela. Isso fecha o Discord e desliga a
+saída — depois é só abrir o Discord normalmente.
+
+Pelo terminal, o mesmo:
+
+    INICIAR-LINUX.sh parar        (ou INICIAR-WINDOWS.cmd parar)
+
+Enquanto você usa, se alguma conexão passar de 25 segundos, a janela
+avisa que a saída está lenta. É o sinal de que enviar imagem vai falhar.
+
+
 QUANDO ALGO DER ERRADO
 ----------------------
 Clique em "Salvar relatório (.txt)". O arquivo vai para a sua Área de
@@ -76,7 +89,9 @@ PROBLEMAS COMUNS
     servidor disponível naquele país no momento.
 
 A imagem some quando eu envio
-    O Tor é lento para enviar. Use um proxy próprio.
+    O Tor é lento para enviar. Se a janela avisou que a saída está
+    lenta, é isso. Use um proxy próprio, ou clique em "Encerrar
+    sessão" para voltar ao normal enquanto precisar mandar arquivos.
 
 O Discord não foi encontrado
     Em "Ajustes avançados", informe o caminho do programa.

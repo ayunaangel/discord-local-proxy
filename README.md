@@ -188,6 +188,7 @@ python -m discord_proxy shortcut    # cria o atalho "Discord (Proxy)"
 python -m discord_proxy tor         # testa só o Tor embutido (--pais nl)
 python -m discord_proxy log         # o que passou pela ponte, com volume e desfecho
 python -m discord_proxy relatorio   # gera o .txt de diagnóstico
+python -m discord_proxy parar       # encerra uma sessão pendurada
 python -m discord_proxy clean       # remove atalho e componente nativo
 ```
 
@@ -205,6 +206,16 @@ passa ao largo do proxy.
 
 Enquanto o Discord estiver aberto com proxy, o processo do launcher precisa
 continuar vivo: a ponte morre junto com ele.
+
+Se a sessão ficar pendurada, `parar` encerra tudo — Discord, ponte e o Tor que
+o programa subiu. Ele identifica o Tor pela pasta de dados, então um Tor Browser
+aberto por você não é tocado. A ordem também importa e está tratada: o Discord
+sai antes da ponte, senão ele fica apontando para um proxy que não existe mais e
+perde a conexão em vez de voltar ao normal.
+
+Durante a sessão, um túnel que passa de 25 segundos gera um aviso na janela.
+É o sinal de que a saída está lenta demais e o envio de imagem vai falhar —
+sem isso, a única pista seria a imagem sumindo sem explicação.
 
 ### O ajuste de voz (opcional, desligado por padrão)
 

@@ -33,6 +33,7 @@ MUTED = "#6D6870"
 LINE = "#DED7CF"
 DANGER = "#96364C"
 SUCCESS = "#1F6F4A"
+ATENCAO = "#9A6412"
 
 AQUI = "Daqui mesmo (sem trocar nada)"
 MEU_PROXY = "Meu próprio proxy…"
@@ -173,7 +174,7 @@ class Window:
         )
         self.go.grid(row=2, column=0, sticky="w")
         self.stop_button = ttk.Button(
-            card2, text="Como encerrar", command=self._stop_session, state="disabled"
+            card2, text="Encerrar sessão", command=self._stop_session, state="disabled"
         )
         self.stop_button.grid(row=2, column=1, sticky="w", padx=(10, 0))
 
@@ -211,6 +212,7 @@ class Window:
         self.log.tag_configure("erro", foreground=DANGER)
         self.log.tag_configure("bom", foreground=SUCCESS)
         self.log.tag_configure("passo", foreground=VIOLET)
+        self.log.tag_configure("atencao", foreground=ATENCAO)
         self.log.configure(state="disabled")
 
         ttk.Label(outer, textvariable=self.status, foreground=MUTED).grid(
@@ -440,6 +442,7 @@ class Window:
                     wait=True,
                     on_step=lambda texto: self.messages.put(("passo", texto)),
                     on_started=anuncio,
+                    on_warning=lambda texto: self.messages.put(("aviso", texto)),
                 )
                 self.messages.put(("info", "O Discord foi fechado. A saída foi desligada."))
             except Exception as exc:  # noqa: BLE001
@@ -451,10 +454,23 @@ class Window:
         self.session.start()
 
     def _stop_session(self) -> None:
-        self._write(
-            "Para encerrar: feche o Discord normalmente. Assim que ele fechar, a saída "
-            "é desligada sozinha e este botão volta ao normal."
-        )
+        from tkinter import messagebox
+
+        if not messagebox.askokcancel(
+            "Encerrar a sessão?",
+            "O Discord vai ser fechado e a saída desligada.\n\n"
+            "Depois é só abrir o Discord normalmente — ele volta a usar a sua "
+            "conexão de sempre.",
+        ):
+            return
+
+        def work() -> str:
+            resultado = run_module.stop_session()
+            return (
+                f"{resultado}.\nAbra o Discord normalmente para voltar ao uso comum."
+            )
+
+        self._background("Encerrando…", work)
 
     def _where(self) -> None:
         try:
@@ -577,6 +593,9 @@ class Window:
             elif kind == "passo":
                 self.status.set(text)
                 self._write(text, tag="passo")
+            elif kind == "aviso":
+                self.status.set("A saída está lenta.")
+                self._write("⚠ " + text, tag="atencao")
             else:
                 self._write(text, tag={"erro": "erro", "bom": "bom"}.get(kind))
         self.root.after(120, self._drain)

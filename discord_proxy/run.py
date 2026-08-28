@@ -143,6 +143,7 @@ def launch(
     environ: Mapping[str, str] | None = None,
     on_started: Callable[[Result], None] | None = None,
     on_step: Callable[[str], None] | None = None,
+    on_warning: Callable[[str], None] | None = None,
 ) -> Result:
     source = dict(os.environ if environ is None else environ)
     probe = detect_channel(channel, environ=source)
@@ -184,7 +185,17 @@ def launch(
             journal = voice_module.data_root(source) / "bridge-targets.txt"
             journal.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             journal.unlink(missing_ok=True)
-            bridge = bridge_module.Bridge(proxy, journal=journal).start()
+            def avisar_lentidao(destino: str, segundos: float) -> None:
+                _say(
+                    on_warning or on_step,
+                    f"A saída está lenta: {destino} já leva {segundos:.0f}s. "
+                    "Envio de imagem costuma falhar assim — se for o caso, "
+                    "troque de país ou use um proxy mais rápido.",
+                )
+
+            bridge = bridge_module.Bridge(
+                proxy, journal=journal, on_slow=avisar_lentidao
+            ).start()
             url = bridge.url
             _say(on_step, "Abrindo o Discord…")
 
@@ -225,6 +236,105 @@ def launch(
             bridge.stop()
         if tor_process is not None:
             tor_process.stop()
+
+
+@dataclass(frozen=True)
+class StopReport:
+    """O que foi encerrado por `stop_session`."""
+
+    discord: int = 0
+    launcher: int = 0
+    tor: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.discord + self.launcher + self.tor
+
+    def __str__(self) -> str:
+        if not self.total:
+            return "nada estava rodando"
+        partes = []
+        if self.discord:
+            partes.append(f"{self.discord} processo(s) do Discord")
+        if self.launcher:
+            partes.append(f"{self.launcher} launcher")
+        if self.tor:
+            partes.append(f"{self.tor} Tor")
+        return "encerrado: " + ", ".join(partes)
+
+
+def _own_processes() -> tuple[list[int], list[int], list[int]]:
+    """Separa o que é nosso: Discord, launcher e o Tor que nós subimos."""
+    discord: list[int] = []
+    launcher: list[int] = []
+    tor: list[int] = []
+    proprio = os.getpid()
+    raiz = str(voice_module.data_root())
+    try:
+        entradas = list(Path("/proc").iterdir())
+    except OSError:
+        return discord, launcher, tor
+    for entrada in entradas:
+        if not entrada.name.isdigit() or int(entrada.name) == proprio:
+            continue
+        pid = int(entrada.name)
+        try:
+            executavel = os.path.basename(os.readlink(f"/proc/{pid}/exe"))
+        except OSError:
+            executavel = ""
+        try:
+            partes = [
+                p
+                for p in (entrada / "cmdline").read_bytes().decode(errors="replace").split("\x00")
+                if p
+            ]
+        except OSError:
+            partes = []
+        if "iscord" in executavel:
+            discord.append(pid)
+        elif executavel in {"tor", "tor.exe"} and any(raiz in p for p in partes):
+            # só o Tor com a nossa pasta de dados; o Tor Browser da pessoa fica em paz
+            tor.append(pid)
+        elif len(partes) >= 4 and partes[1:4] == ["-m", "discord_proxy", "run"]:
+            launcher.append(pid)
+    return discord, launcher, tor
+
+
+def stop_session(*, close_discord: bool = True) -> StopReport:
+    """Encerra uma sessão que ficou pendurada.
+
+    A ordem importa: se a ponte morrer primeiro, o Discord fica apontando para
+    um proxy que não existe mais e perde a conexão inteira em vez de voltar ao
+    normal. Por isso o Discord sai antes.
+    """
+    import signal
+
+    if os.name == "nt":
+        raise LaunchError("por enquanto isto só funciona no Linux; feche o Discord à mão")
+
+    discord, launcher, tor = _own_processes()
+    encerrados = StopReport(
+        discord=len(discord) if close_discord else 0,
+        launcher=len(launcher),
+        tor=len(tor),
+    )
+
+    ordem = (discord if close_discord else []) + launcher + tor
+    for aviso, espera in ((signal.SIGTERM, 6.0), (signal.SIGKILL, 2.0)):
+        restantes = [pid for pid in ordem if _alive(pid)]
+        if not restantes:
+            break
+        for pid in restantes:
+            try:
+                os.kill(pid, aviso)
+            except OSError:
+                pass
+        time.sleep(espera)
+    return encerrados
+
+
+def _alive(pid: int) -> bool:
+    return Path(f"/proc/{pid}").exists()
 
 
 def _process_options() -> dict:

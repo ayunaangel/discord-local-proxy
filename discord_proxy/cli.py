@@ -107,6 +107,15 @@ def build_parser() -> argparse.ArgumentParser:
     tor_command = subcommands.add_parser("tor", help="testa o Tor embutido sozinho")
     tor_command.add_argument("--pais", default="", help="país de saída (us, nl, de…)")
 
+    parar = subcommands.add_parser(
+        "parar", help="encerra uma sessão que ficou pendurada (ponte, Tor e Discord)"
+    )
+    parar.add_argument(
+        "--manter-discord",
+        action="store_true",
+        help="encerra só a ponte e o Tor — atenção: o Discord fica sem conexão",
+    )
+
     subcommands.add_parser("clean", help="remove atalhos e o componente nativo instalado")
     return parser
 
@@ -176,6 +185,9 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         print("  " + " ".join(plan.command))
         return 0
 
+    if command == "parar":
+        return _parar(arguments)
+
     if command == "relatorio":
         return _relatorio(arguments)
 
@@ -218,6 +230,7 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
             wait=False if arguments.no_wait else None,
             on_started=announce,
             on_step=lambda texto: print(texto, flush=True),
+            on_warning=lambda texto: print(f"aviso: {texto}", file=sys.stderr, flush=True),
         )
         return 0
 
@@ -271,6 +284,21 @@ def _config(arguments: argparse.Namespace) -> int:
     else:
         print(f"# {path}")
         print(config.as_ini(), end="")
+    return 0
+
+
+def _parar(arguments: argparse.Namespace) -> int:
+    fechar = not arguments.manter_discord
+    if not fechar:
+        print(
+            "aviso: sem fechar o Discord, ele continua apontando para uma ponte que\n"
+            "       deixou de existir e fica sem conexão até você reiniciá-lo.",
+            file=sys.stderr,
+        )
+    resultado = run_module.stop_session(close_discord=fechar)
+    print(resultado)
+    if resultado.discord:
+        print("Abra o Discord normalmente para voltar a usar sem a troca de região.")
     return 0
 
 
