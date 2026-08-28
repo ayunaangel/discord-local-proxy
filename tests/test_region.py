@@ -239,6 +239,24 @@ class BridgeJournal(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].code, "rotterdam")
 
+    def test_reads_the_full_log_format(self):
+        self.journal.write_text(
+            "11:05:12 cdn.discordapp.com:443 ok enviado=2KB recebido=180KB 1.2s\n"
+            "11:05:20 c-iad10-b19ce4e8.discord.media:2053 ok enviado=5.1MB recebido=800KB 62.0s\n"
+            "11:06:01 latency.discord.media:443 ok enviado=1KB recebido=1KB 0.3s\n"
+        )
+        found = region_module.voice_endpoints()
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].hostname, "c-iad10-b19ce4e8.discord.media")
+        self.assertEqual(found[0].port, 2053)
+
+    def test_a_failed_tunnel_still_names_its_target(self):
+        self.journal.write_text(
+            "11:07:00 c-gru05-4f2c1a9b.discord.media:443 recusado(tempo esgotado) "
+            "enviado=0B recebido=0B 10.0s\n"
+        )
+        self.assertIn("São Paulo", region_module.voice_endpoints()[0].region)
+
     def test_text_shows_name_and_region(self):
         self.journal.write_text("brazil1111.discord.media:443\n")
         self.assertIn("brazil1111.discord.media:443", str(region_module.voice_endpoints()[0]))

@@ -78,6 +78,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     exit_command.add_argument("--config", type=Path, help="caminho do arquivo")
 
+    log_command = subcommands.add_parser(
+        "log", help="o que passou pela ponte na sessão atual (destino, volume, desfecho)"
+    )
+    log_command.add_argument("-n", type=int, default=25, help="quantas linhas mostrar")
+    log_command.add_argument(
+        "--problemas", action="store_true", help="só os túneis que não terminaram bem"
+    )
+
     subcommands.add_parser("clean", help="remove atalhos e o componente nativo instalado")
     return parser
 
@@ -122,6 +130,9 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         print("\nComando:")
         print("  " + " ".join(plan.command))
         return 0
+
+    if command == "log":
+        return _log(arguments)
 
     if command == "region":
         return _region(arguments)
@@ -197,6 +208,41 @@ def _config(arguments: argparse.Namespace) -> int:
         print(f"# {path}")
         print(config.as_ini(), end="")
     return 0
+
+
+def _log(arguments: argparse.Namespace) -> int:
+    path = region_module.journal_path()
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        print("Nada registrado ainda — a ponte só escreve com o Discord aberto por aqui.")
+        return 1
+    if arguments.problemas:
+        lines = [line for line in lines if " ok " not in line]
+    if not lines:
+        print("Nenhum problema registrado." if arguments.problemas else "Registro vazio.")
+        return 0
+    print(f"# {path}")
+    for line in lines[-arguments.n :]:
+        print("  " + line)
+    lentos = [line for line in lines if _looks_slow(line)]
+    if lentos:
+        print(
+            f"\n{len(lentos)} túnel(is) passaram de 30 segundos. Se foram uploads de "
+            "imagem, é a subida do proxy que está devagar — meça com `exit-ip` e "
+            "considere um proxy mais rápido."
+        )
+    return 0
+
+
+def _looks_slow(line: str) -> bool:
+    fields = line.split()
+    if not fields or not fields[-1].endswith("s"):
+        return False
+    try:
+        return float(fields[-1][:-1]) > 30.0
+    except ValueError:
+        return False
 
 
 def _region(arguments: argparse.Namespace) -> int:

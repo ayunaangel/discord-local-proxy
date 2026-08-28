@@ -15,7 +15,9 @@ import socket
 import socketserver
 import struct
 import threading
+import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -118,18 +120,33 @@ class _Server(socketserver.ThreadingTCPServer):
         self.journal_lock = threading.Lock()
         super().__init__(("127.0.0.1", 0), _Handler)
 
-    def note_target(self, host: str, port: int) -> None:
-        """Anota o destino de cada túnel.
+    def note_target(
+        self,
+        host: str,
+        port: int,
+        *,
+        status: str = "aberto",
+        sent: int = 0,
+        received: int = 0,
+        seconds: float = 0.0,
+    ) -> None:
+        """Anota cada túnel: para onde foi, como terminou e quanto passou.
 
-        Quando há proxy, o WebRTC do Discord também passa por aqui — é assim
-        que dá para saber com qual servidor de mídia a chamada está falando,
-        pelo nome que o próprio cliente pediu.
+        Serve para duas coisas. A primeira é saber com qual servidor de mídia a
+        chamada está falando, pelo nome que o próprio cliente pediu. A segunda é
+        poder responder "por que o upload da imagem falhou?" — sem isto, um
+        túnel que morre no meio não deixa rastro nenhum.
         """
         if self.journal is None:
             return
+        moment = datetime.now().strftime("%H:%M:%S")
+        line = (
+            f"{moment} {host}:{port} {status} "
+            f"enviado={_size(sent)} recebido={_size(received)} {seconds:.1f}s\n"
+        )
         try:
             with self.journal_lock, self.journal.open("a", encoding="utf-8") as handle:
-                handle.write(f"{host}:{port}\n")
+                handle.write(line)
         except OSError:
             pass
 
@@ -152,17 +169,40 @@ class _Handler(socketserver.BaseRequestHandler):
 
     def _tunnel(self, client: socket.socket, target: str, extra: bytes) -> None:
         host, port = _split_authority(target, 443)
-        self.server.note_target(host, port)
-        upstream, leftover = open_tunnel(self.server.proxy, host, port)
+        started = time.monotonic()
+        try:
+            upstream, leftover = open_tunnel(self.server.proxy, host, port)
+        except (ProxyError, OSError) as exc:
+            self.server.note_target(
+                host, port, status=f"recusado({_clean(exc)})", seconds=time.monotonic() - started
+            )
+            raise
+        sent = received = 0
+        status = "ok"
         try:
             client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             if leftover:
                 client.sendall(leftover)
             if extra:
                 upstream.sendall(extra)
-            _relay(client, upstream)
+                sent += len(extra)
+            counted = _relay(client, upstream)
+            sent += counted[0]
+            received += counted[1]
+            status = counted[2]
+        except OSError as exc:
+            status = f"erro({_clean(exc)})"
+            raise
         finally:
             upstream.close()
+            self.server.note_target(
+                host,
+                port,
+                status=status,
+                sent=sent,
+                received=received,
+                seconds=time.monotonic() - started,
+            )
 
     def _forward(
         self,
@@ -364,23 +404,48 @@ def _recv_exact(sock: socket.socket, length: int) -> bytes:
     return bytes(data)
 
 
-def _relay(left: socket.socket, right: socket.socket) -> None:
+def _relay(left: socket.socket, right: socket.socket) -> tuple[int, int, str]:
+    """Copia nos dois sentidos até alguém fechar.
+
+    Devolve quanto passou em cada direção e como terminou, para o registro
+    conseguir explicar um túnel que morreu no meio.
+    """
     left.settimeout(None)
     right.settimeout(None)
     pair = [left, right]
+    to_upstream = 0
+    from_upstream = 0
     while True:
         readable, _, _ = select.select(pair, [], [], IDLE_SECONDS)
         if not readable:
-            return
+            return to_upstream, from_upstream, "parado(sem dados por 10min)"
         for source in readable:
             destination = right if source is left else left
             try:
                 data = source.recv(CHUNK)
-                if not data:
-                    return
+            except OSError as exc:
+                lado = "cliente" if source is left else "proxy"
+                return to_upstream, from_upstream, f"queda-{lado}({_clean(exc)})"
+            if not data:
+                lado = "cliente" if source is left else "proxy"
+                return to_upstream, from_upstream, f"fim-{lado}"
+            try:
                 destination.sendall(data)
-            except OSError:
-                return
+            except OSError as exc:
+                lado = "proxy" if destination is right else "cliente"
+                return to_upstream, from_upstream, f"envio-{lado}({_clean(exc)})"
+            if source is left:
+                to_upstream += len(data)
+            else:
+                from_upstream += len(data)
+
+
+def _size(amount: int) -> str:
+    if amount >= 1024 * 1024:
+        return f"{amount / 1048576:.1f}MB"
+    if amount >= 1024:
+        return f"{amount / 1024:.0f}KB"
+    return f"{amount}B"
 
 
 def _send_error(client: socket.socket, message: str) -> None:

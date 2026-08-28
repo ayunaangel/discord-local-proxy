@@ -198,13 +198,30 @@ def _from_journal() -> list[Endpoint]:
         return []
     found: list[Endpoint] = []
     for line in reversed(lines[-4096:]):
-        host, _, port = line.strip().rpartition(":")
-        if not host or not port.isdigit() or not _is_media_server(host):
+        target = _target_of(line)
+        if target is None:
             continue
-        endpoint = Endpoint(address="", port=int(port), hostname=host)
+        host, port = target
+        if not _is_media_server(host):
+            continue
+        endpoint = Endpoint(address="", port=port, hostname=host)
         if endpoint not in found:
             found.append(endpoint)
     return found
+
+
+def _target_of(line: str) -> "tuple[str, int] | None":
+    """Extrai `host:porta` de uma linha do registro da ponte.
+
+    O registro é `11:05:12 host:porta status enviado=… recebido=… 8.3s`, mas
+    também aceitamos a linha crua `host:porta` de versões anteriores.
+    """
+    fields = line.split()
+    for candidate in (fields[1] if len(fields) > 1 else "", fields[0] if fields else ""):
+        host, _, port = candidate.rpartition(":")
+        if host and port.isdigit():
+            return host, int(port)
+    return None
 
 
 def exit_address(proxy: Proxy) -> Place:

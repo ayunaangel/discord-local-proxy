@@ -146,12 +146,24 @@ também é lido.
 
 A ferramenta não vem com servidor nenhum; o proxy é seu. Duas opções comuns:
 
-- **Tor Browser** — SOCKS5 em `127.0.0.1:9150` enquanto ele estiver aberto. Sai
-  por um país que muda sozinho a cada circuito, e o Discord costuma pedir
-  captcha em IPs de saída do Tor. Bom para testar, ruim para o dia a dia.
+- **Tor Browser** — SOCKS5 em `127.0.0.1:9150` enquanto ele estiver aberto. Bom
+  para testar se a troca de região resolve o seu caso; **ruim para o dia a
+  dia**. A subida pelo Tor é muito lenta: numa medição aqui, 2 MB levaram 37
+  segundos (55 KB/s) contra 0,2 segundo na conexão direta. Na prática, o envio
+  de imagens estoura o tempo do Discord e a imagem some sem aviso. O país
+  também muda sozinho a cada circuito, e o login costuma cair em captcha.
 - **Um servidor SOCKS5 ou HTTP seu** — uma VPS com túnel SSH
   (`ssh -D 1080 usuario@servidor`) dá um SOCKS5 estável em `127.0.0.1:1080`,
-  com país fixo e sem captcha.
+  com país fixo, sem captcha e com a banda da VPS. É a opção para usar
+  trabalhando.
+
+A banda importa mais do que parece: com o proxy ligado, **a mídia da chamada
+passa por ele**, e o upload de anexos também. Se as imagens somem ao enviar ou a
+transmissão trava, olhe o tempo dos túneis:
+
+```bash
+python -m discord_proxy log --problemas
+```
 
 ## Comandos
 
@@ -163,6 +175,7 @@ python -m discord_proxy exit-ip     # de onde você parece vir
 python -m discord_proxy region      # para onde a chamada está indo
 python -m discord_proxy run         # abre o Discord
 python -m discord_proxy shortcut    # cria o atalho "Discord (Proxy)"
+python -m discord_proxy log         # o que passou pela ponte, com volume e desfecho
 python -m discord_proxy clean       # remove atalho e componente nativo
 ```
 
