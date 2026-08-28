@@ -1,14 +1,42 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/tutorial", "destination": "/#passos", "permanent": false },
-    { "source": "/recursos", "destination": "/#problema", "permanent": false },
-    { "source": "/download", "destination": "/#baixar", "permanent": false },
-    { "source": "/duvidas", "destination": "/#duvidas", "permanent": false },
-    { "source": "/seguranca", "destination": "/#honesto", "permanent": false },
-    { "source": "/voz-e-tela", "destination": "/#duvidas", "permanent": false },
+    {
+      "source": "/tutorial",
+      "destination": "/#passos",
+      "permanent": false
+    },
+    {
+      "source": "/recursos",
+      "destination": "/#problema",
+      "permanent": false
+    },
+    {
+      "source": "/download",
+      "destination": "/#baixar",
+      "permanent": false
+    },
+    {
+      "source": "/duvidas",
+      "destination": "/#duvidas",
+      "permanent": false
+    },
+    {
+      "source": "/seguranca",
+      "destination": "/#honesto",
+      "permanent": false
+    },
+    {
+      "source": "/voz-e-tela",
+      "destination": "/#duvidas",
+      "permanent": false
+    },
     {
       "source": "/downloads/(.*)",
       "destination": "https://github.com/ayunaangel/discord-local-proxy/releases/latest",
@@ -19,15 +47,27 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
       ]
     },
     {
       "source": "/(.*).(css|js|svg|png|jpg|webp|woff2)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     }
   ]
