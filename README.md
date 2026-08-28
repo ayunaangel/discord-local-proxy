@@ -11,12 +11,16 @@ normalmente.
 
 Funciona no Windows, no Linux e no macOS.
 
+> **Para quem não usa terminal:** abra o programa e siga a janela. O passo a
+> passo completo está em [COMO-USAR.txt](COMO-USAR.txt).
+
 ## Em um minuto
 
-Com o Tor Browser aberto (ele expõe um SOCKS5 em 9150):
+Se você tem o Tor Browser instalado, o programa liga o Tor sozinho — sem abrir
+navegador nenhum, sem janela preta, numa porta só dele:
 
 ```bash
-python -m discord_proxy config --proxy socks5://127.0.0.1:9150
+python -m discord_proxy config --proxy tor --pais nl
 ```
 
 Veja de onde você passa a parecer vir:
@@ -118,7 +122,9 @@ voice = off
 
 | Chave | O que faz |
 |---|---|
-| `proxy` | Por onde o Discord sai. Vazio = direto, sem trocar nada. Aceita `http://` e `socks5://`, com ou sem usuário e senha. **É esta a chave que muda a região.** |
+| `proxy` | Por onde o Discord sai. Vazio = direto. `tor` = liga o Tor sozinho. Ou uma URL `http://`/`socks5://`, com ou sem usuário e senha. **É esta a chave que muda a região.** |
+| `pais` | Só com `proxy = tor`: país de saída (`us`, `nl`, `de`, `fr`, `gb`…). Vazio = o Tor escolhe. |
+| `tor` | Pasta do Tor Browser, se ele não estiver num lugar comum. |
 | `voice` | Coisa diferente: mexe no primeiro pacote UDP para furar filtro de DPI. Não tem efeito nenhum sobre região. Deixe `off` a menos que a voz esteja bloqueada na sua rede. |
 | `delay` | Pausa em milissegundos usada pelo ajuste de voz. 0 a 1000. |
 | `packet` | Arquivo `.bin` opcional enviado antes do preparo de voz. Não vem no projeto. |
@@ -142,16 +148,20 @@ Um `discord-proxy.ini` ao lado do `Discord.exe` tem prioridade — é o modo man
 do [drover](https://github.com/hdrover/discord-drover), e um `drover.ini` antigo
 também é lido.
 
-## Que proxy usar
+## Que saída usar
 
-A ferramenta não vem com servidor nenhum; o proxy é seu. Duas opções comuns:
-
-- **Tor Browser** — SOCKS5 em `127.0.0.1:9150` enquanto ele estiver aberto. Bom
-  para testar se a troca de região resolve o seu caso; **ruim para o dia a
+- **Tor embutido (`proxy = tor`)** — o programa acha o Tor dentro do Tor Browser
+  instalado e liga só a parte de rede dele: sem navegador, sem janela, numa
+  porta própria, com os dados numa pasta nossa. Dá para fixar o país com `pais`.
+  Bom para testar se a troca de região resolve o seu caso; **ruim para o dia a
   dia**. A subida pelo Tor é muito lenta: numa medição aqui, 2 MB levaram 37
   segundos (55 KB/s) contra 0,2 segundo na conexão direta. Na prática, o envio
-  de imagens estoura o tempo do Discord e a imagem some sem aviso. O país
-  também muda sozinho a cada circuito, e o login costuma cair em captcha.
+  de imagens estoura o tempo do Discord e a imagem some sem aviso. O login
+  também costuma cair em captcha.
+
+  Escolher país exige as tabelas de GeoIP, que vêm no Tor Browser. Um `tor`
+  avulso instalado pelo sistema pode não trazê-las — nesse caso só o modo
+  automático funciona, e o programa avisa.
 - **Um servidor SOCKS5 ou HTTP seu** — uma VPS com túnel SSH
   (`ssh -D 1080 usuario@servidor`) dá um SOCKS5 estável em `127.0.0.1:1080`,
   com país fixo, sem captcha e com a banda da VPS. É a opção para usar
@@ -175,7 +185,9 @@ python -m discord_proxy exit-ip     # de onde você parece vir
 python -m discord_proxy region      # para onde a chamada está indo
 python -m discord_proxy run         # abre o Discord
 python -m discord_proxy shortcut    # cria o atalho "Discord (Proxy)"
+python -m discord_proxy tor         # testa só o Tor embutido (--pais nl)
 python -m discord_proxy log         # o que passou pela ponte, com volume e desfecho
+python -m discord_proxy relatorio   # gera o .txt de diagnóstico
 python -m discord_proxy clean       # remove atalho e componente nativo
 ```
 
@@ -252,6 +264,18 @@ Testes:
 ```bash
 python -m unittest discover -s tests -t .
 ```
+
+## Quando algo dá errado
+
+```bash
+python -m discord_proxy relatorio
+```
+
+Gera um `discord-proxy-relatorio.txt` na Área de Trabalho com o sistema, o
+Discord encontrado, a configuração, o registro da ponte e as últimas mensagens
+do Tor. A senha aparece como `***`. É o arquivo para mandar a quem for ajudar.
+
+Na janela, o mesmo está no botão **Salvar relatório (.txt)**.
 
 ## O que isto não é
 

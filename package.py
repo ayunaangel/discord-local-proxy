@@ -67,6 +67,8 @@ def collect(executable: Path, shim: Path, staging: Path) -> None:
     shutil.copy2(ROOT / "discord-proxy.ini.example", hidden / "discord-proxy.ini.example")
     shutil.copy2(ROOT / "README.md", hidden / "README.md")
     shutil.copy2(ROOT / "LICENSE", hidden / "LICENSE")
+    # O guia fica de fora, à vista de quem extrair o pacote.
+    shutil.copy2(ROOT / "COMO-USAR.txt", staging / "COMO-USAR.txt")
 
     starter = "INICIAR-WINDOWS.cmd" if os.name == "nt" else "INICIAR-LINUX.sh"
     destination = staging / starter

@@ -1,0 +1,82 @@
+====================================================================
+ DISCORD PROXY — como usar
+====================================================================
+
+PARA QUE SERVE
+--------------
+Faz o Discord sair para a internet por outro país. Isso muda a região
+do servidor da chamada, que é o mesmo por onde passam a CÂMERA e o
+COMPARTILHAMENTO DE TELA. Serve para quando esses recursos ficam
+indisponíveis por causa da sua região.
+
+Só o Discord é afetado. O resto do computador continua normal.
+
+
+COMO ABRIR
+----------
+Windows: clique duas vezes em INICIAR-WINDOWS.cmd
+Linux:   clique duas vezes em INICIAR-LINUX.sh e escolha "Executar"
+
+
+PASSO A PASSO
+-------------
+1. Na janela, escolha em "De onde você quer sair":
+
+      Daqui mesmo        = sem trocar nada
+      Tor · Automático   = o programa liga o Tor sozinho
+      Tor · Holanda      = (ou outro país da lista)
+      Meu próprio proxy  = se você tem uma VPS
+
+2. FECHE O DISCORD POR INTEIRO. Isso inclui o ícone que fica ao lado
+   do relógio: clique com o botão direito nele e escolha sair.
+   Se o Discord já estiver aberto, ele ignora a troca.
+
+3. Clique em "Abrir o Discord".
+
+4. DEIXE A JANELA DO DISCORD PROXY ABERTA enquanto estiver usando.
+   Se fechar, o Discord volta a sair pela sua conexão normal.
+
+5. Para conferir se funcionou, clique em "Onde estou saindo".
+   Depois, dentro de uma chamada, clique em "Região da chamada".
+
+
+PARA USAR O TOR
+---------------
+Instale o Tor Browser: https://www.torproject.org/pt-BR/download/
+Depois de instalar, deixe a pasta em Downloads. O programa acha
+sozinho. Você NÃO precisa abrir o Tor Browser — o programa usa só a
+parte de rede dele, sem abrir janela nenhuma.
+
+AVISO IMPORTANTE SOBRE O TOR: ele é lento para enviar arquivos. Se
+você mandar uma imagem no Discord e ela sumir, é por isso. O Tor
+serve bem para conversar e para testar se a troca de região resolve
+o seu caso; para trabalhar o dia todo, use um proxy próprio.
+
+
+QUANDO ALGO DER ERRADO
+----------------------
+Clique em "Salvar relatório (.txt)". O arquivo vai para a sua Área de
+Trabalho com o nome discord-proxy-relatorio.txt. Mande esse arquivo
+para quem for te ajudar.
+
+O relatório NÃO contém sua senha nem suas conversas.
+
+
+PROBLEMAS COMUNS
+----------------
+"O Discord já está aberto"
+    Feche pelo ícone ao lado do relógio, não só a janela.
+
+"Tor não encontrado"
+    Instale o Tor Browser e deixe a pasta em Downloads. Ou informe a
+    pasta em "Ajustes avançados".
+
+"O Tor não conseguiu abrir um circuito"
+    Se você escolheu um país, tente "Automático" — pode não haver
+    servidor disponível naquele país no momento.
+
+A imagem some quando eu envio
+    O Tor é lento para enviar. Use um proxy próprio.
+
+O Discord não foi encontrado
+    Em "Ajustes avançados", informe o caminho do programa.
