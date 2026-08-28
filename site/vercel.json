@@ -2,6 +2,19 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/tutorial", "destination": "/#passos", "permanent": false },
+    { "source": "/recursos", "destination": "/#problema", "permanent": false },
+    { "source": "/download", "destination": "/#baixar", "permanent": false },
+    { "source": "/duvidas", "destination": "/#duvidas", "permanent": false },
+    { "source": "/seguranca", "destination": "/#honesto", "permanent": false },
+    { "source": "/voz-e-tela", "destination": "/#duvidas", "permanent": false },
+    {
+      "source": "/downloads/(.*)",
+      "destination": "https://github.com/ayunaangel/discord-local-proxy/releases/latest",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

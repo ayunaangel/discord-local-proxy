@@ -166,10 +166,15 @@ a { color: inherit; }
   padding: 7px 14px; border-radius: 999px;
 }
 
+/* Tamanhos em degraus, não em vw: previsível em qualquer motor e o zoom de
+   fonte do sistema continua valendo. */
 h1 {
-  margin: 0 0 20px; font-size: clamp(2.4rem, 1.55rem + 3.3vw, 4rem); line-height: 1.06;
+  margin: 0 0 20px; font-size: 2.4rem; line-height: 1.06;
   letter-spacing: -.035em; font-weight: 800;
 }
+@media (min-width: 600px)  { h1 { font-size: 3rem; } }
+@media (min-width: 900px)  { h1 { font-size: 3.5rem; } }
+@media (min-width: 1180px) { h1 { font-size: 4rem; } }
 .destaque {
   background: linear-gradient(120deg, var(--magenta), var(--violeta-claro));
   -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -270,9 +275,11 @@ h1 {
   text-transform: uppercase; color: var(--acento-texto);
 }
 h2 {
-  margin: 0 0 16px; font-size: clamp(1.9rem, 1.35rem + 2.1vw, 2.7rem);
+  margin: 0 0 16px; font-size: 1.9rem;
   line-height: 1.14; letter-spacing: -.03em; font-weight: 800;
 }
+@media (min-width: 600px)  { h2 { font-size: 2.2rem; } }
+@media (min-width: 900px)  { h2 { font-size: 2.7rem; } }
 h3 { margin: 0 0 8px; font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; }
 .secao-chamada { margin: 0 0 36px; color: var(--suave); font-size: 1.06rem; }
 
