@@ -338,14 +338,23 @@ def _tor(arguments: argparse.Namespace) -> int:
     except tor_module.TorError as exc:
         print(f"erro: {exc}", file=sys.stderr)
         return 1
+    codigo = 0
     try:
         print(f"Pronto em 127.0.0.1:{processo.port}")
-        lugar = region_module.exit_address(parse_proxy(processo.proxy_url))
-        print(f"Saindo como: {lugar}")
+        try:
+            lugar = region_module.exit_address(parse_proxy(processo.proxy_url))
+        except region_module.LookupFailed as exc:
+            # O Tor subiu — o que falhou foi só perguntar a um site lá fora de
+            # onde a saída parece vir. Isso não é motivo para despejar um
+            # traceback na tela de quem só quer usar o programa.
+            print(f"o Tor ligou, mas não deu para consultar de onde: {exc}", file=sys.stderr)
+            codigo = 1
+        else:
+            print(f"Saindo como: {lugar}")
     finally:
         processo.stop()
         print("Tor encerrado.")
-    return 0
+    return codigo
 
 
 def _log(arguments: argparse.Namespace) -> int:
