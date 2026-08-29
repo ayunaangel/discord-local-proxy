@@ -4,6 +4,7 @@ import ipaddress
 import os
 import shutil
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -314,3 +315,69 @@ class LookupAnswers(unittest.TestCase):
         for body in ({}, {"error": "rate limited"}, {"city": "Lisboa"}):
             with self.subTest(body=body), self.assertRaises(ValueError):
                 region_module._place_from(body)
+
+
+class Certificados(unittest.TestCase):
+    """De onde saem as autoridades que conferem o HTTPS da consulta.
+
+    O programa pronto é empacotado no Ubuntu. Fora dele — Fedora, Arch,
+    openSUSE — o OpenSSL que veio junto procura os certificados no lugar
+    errado, não acha nenhum, e na 1.0.2 toda consulta morria com
+    CERTIFICATE_VERIFY_FAILED.
+    """
+
+    def setUp(self):
+        self.original = ssl.create_default_context
+        self.addCleanup(lambda: setattr(ssl, "create_default_context", self.original))
+        self.paths_original = region_module.CERTIFICATE_PATHS
+        self.dirs_original = region_module.CERTIFICATE_DIRECTORIES
+        self.addCleanup(
+            lambda: setattr(region_module, "CERTIFICATE_PATHS", self.paths_original)
+        )
+        self.addCleanup(
+            lambda: setattr(region_module, "CERTIFICATE_DIRECTORIES", self.dirs_original)
+        )
+
+    @staticmethod
+    def _vazio():
+        """Um contexto como o que o programa empacotado recebe fora do Debian."""
+        return ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+    def test_o_contexto_do_sistema_serve_quando_ja_vem_com_autoridades(self):
+        context = region_module.certificate_context()
+        self.assertTrue(context.cert_store_stats()["x509_ca"])
+
+    def test_procura_nos_lugares_conhecidos_quando_vem_vazio(self):
+        existentes = [p for p in self.paths_original if os.path.isfile(p)]
+        if not existentes:
+            self.skipTest("esta máquina não tem nenhum dos pacotes de certificado conhecidos")
+        ssl.create_default_context = self._vazio
+        context = region_module.certificate_context()
+        self.assertTrue(
+            context.cert_store_stats()["x509_ca"],
+            "o rodeio existe justamente para carregar as autoridades que faltaram",
+        )
+
+    def test_a_pasta_de_certificados_entra_quando_nao_ha_arquivo_unico(self):
+        existentes = [d for d in self.dirs_original if os.path.isdir(d)]
+        if not existentes:
+            self.skipTest("esta máquina não tem pasta de certificados conhecida")
+        ssl.create_default_context = self._vazio
+        region_module.CERTIFICATE_PATHS = ()
+        # Não dá para conferir a contagem: o `capath` só é lido na hora do
+        # handshake. Basta não estourar e devolver um contexto que confere.
+        context = region_module.certificate_context()
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+
+    def test_sem_certificado_nenhum_a_queixa_diz_o_que_instalar(self):
+        ssl.create_default_context = self._vazio
+        region_module.CERTIFICATE_PATHS = ()
+        region_module.CERTIFICATE_DIRECTORIES = ()
+        with self.assertRaises(region_module.LookupFailed) as capturado:
+            region_module.certificate_context()
+        self.assertIn("ca-certificates", str(capturado.exception))
+
+    def test_a_consulta_nao_desliga_a_conferencia_do_certificado(self):
+        context = region_module.certificate_context()
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)

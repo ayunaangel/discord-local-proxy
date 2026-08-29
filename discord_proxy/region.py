@@ -227,10 +227,13 @@ def _target_of(line: str) -> "tuple[str, int] | None":
 def exit_address(proxy: Proxy) -> Place:
     """O IP que o proxy apresenta ao mundo — consulta um serviço externo."""
     upstream = proxy if proxy.enabled else None
+    # Fora do laço: sem certificado nenhum serviço vai funcionar, e a queixa
+    # sai uma vez só em vez de repetida para cada um deles.
+    context = certificate_context()
     problems: list[str] = []
     for host, path, _ in LOOKUP_SERVICES:
         try:
-            return _place_from(_https_get_json(host, path, proxy=upstream))
+            return _place_from(_https_get_json(host, path, proxy=upstream, context=context))
         except (OSError, ValueError) as exc:
             problems.append(f"{host}: {exc}")
     raise LookupFailed("; ".join(problems))
@@ -239,12 +242,17 @@ def exit_address(proxy: Proxy) -> Place:
 def locate(address: str) -> Place:
     """Onde fica um IP — consulta um serviço externo."""
     ipaddress.ip_address(address)
+    context = certificate_context()
     problems: list[str] = []
     for host, _, template in LOOKUP_SERVICES:
         if not template:
             continue
         try:
-            return _place_from(_https_get_json(host, template.format(address=address), proxy=None))
+            return _place_from(
+                _https_get_json(
+                    host, template.format(address=address), proxy=None, context=context
+                )
+            )
         except (OSError, ValueError) as exc:
             problems.append(f"{host}: {exc}")
     raise LookupFailed("; ".join(problems))
@@ -379,15 +387,65 @@ def _reverse_dns(address: str) -> str:
 
 # ------------------------------------------------------------- consulta web --
 
+# Onde cada família de distribuição guarda os certificados raiz. O programa
+# pronto é empacotado no Ubuntu, e o OpenSSL que vai junto só sabe procurar no
+# lugar do Ubuntu — em Fedora, Arch ou openSUSE ele não acha nada e toda
+# consulta morre com CERTIFICATE_VERIFY_FAILED. Procuramos nós mesmos.
+CERTIFICATE_PATHS = (
+    "/etc/ssl/certs/ca-certificates.crt",  # Debian, Ubuntu, Alpine
+    "/etc/pki/tls/certs/ca-bundle.crt",  # Fedora, RHEL, CentOS
+    "/etc/ssl/ca-bundle.pem",  # openSUSE
+    "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",  # Fedora (extraído)
+    "/etc/ssl/cert.pem",  # Arch, Alpine, macOS
+    "/usr/local/share/certs/ca-root-nss.crt",  # FreeBSD
+)
+CERTIFICATE_DIRECTORIES = (
+    "/etc/ssl/certs",
+    "/etc/pki/tls/certs",
+)
 
-def _https_get_json(host: str, path: str, *, proxy: Proxy | None) -> dict:
+
+def certificate_context() -> ssl.SSLContext:
+    """Um contexto TLS que confere o certificado — mesmo fora do Debian.
+
+    O padrão do Python resolve na máquina de quem instalou pelo código. Quem
+    baixou o programa pronto depende deste rodeio: se o contexto padrão vier
+    sem nenhuma autoridade carregada, varremos os lugares conhecidos.
+    """
+    context = ssl.create_default_context()
+    if context.cert_store_stats()["x509_ca"]:
+        return context
+    for candidate in CERTIFICATE_PATHS:
+        if os.path.isfile(candidate):
+            try:
+                context.load_verify_locations(cafile=candidate)
+            except (OSError, ssl.SSLError):
+                continue
+            if context.cert_store_stats()["x509_ca"]:
+                return context
+    for candidate in CERTIFICATE_DIRECTORIES:
+        if os.path.isdir(candidate):
+            try:
+                context.load_verify_locations(capath=candidate)
+            except (OSError, ssl.SSLError):
+                continue
+            return context
+    raise LookupFailed(
+        "não achei os certificados raiz do sistema, então não dá para conferir "
+        "com quem estou falando. Instale o pacote de certificados da sua "
+        "distribuição (ca-certificates)"
+    )
+
+
+def _https_get_json(
+    host: str, path: str, *, proxy: Proxy | None, context: ssl.SSLContext
+) -> dict:
     """GET simples em HTTPS, direto ou por dentro do proxy configurado."""
     if proxy is not None:
         raw, _ = bridge_module.open_tunnel(proxy, host, 443)
     else:
         raw = socket.create_connection((host, 443), LOOKUP_TIMEOUT)
     raw.settimeout(LOOKUP_TIMEOUT)
-    context = ssl.create_default_context()
     try:
         with context.wrap_socket(raw, server_hostname=host) as secure:
             request = (
