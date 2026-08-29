@@ -169,10 +169,7 @@ def _dispatch(command: str, arguments: argparse.Namespace) -> int:
         return _config(arguments)
 
     if command == "test":
-        config = load_or_default(_path_for(arguments))
-        result = bridge_module.test_proxy(config.proxy)
-        print(f"{config.exit_label}: {result.message}")
-        return 0 if result.ok else 1
+        return _test(arguments)
 
     if command == "plan":
         plan = run_module.build_plan(
@@ -311,6 +308,34 @@ def _relatorio(arguments: argparse.Namespace) -> int:
     print(f"Relatório salvo em: {caminho}")
     print("Envie este arquivo para quem for te ajudar — ele não contém sua senha.")
     return 0
+
+
+def _test(arguments: argparse.Namespace) -> int:
+    """Confere a saída configurada de verdade — inclusive quando ela é o Tor.
+
+    Com `proxy = tor` não existe endereço fixo para testar: o proxy só passa a
+    existir depois que o Tor sobe. Subimos, testamos por dentro dele e
+    desligamos.
+    """
+    config = load_or_default(_path_for(arguments))
+    if not config.use_tor:
+        result = bridge_module.test_proxy(config.proxy)
+        print(f"{config.exit_label}: {result.message}")
+        return 0 if result.ok else 1
+
+    print(f"{config.exit_label}: ligando o Tor para testar…")
+    try:
+        processo = tor_module.start(country=config.country, extra_path=config.tor_path)
+    except tor_module.TorError as exc:
+        print(f"{config.exit_label}: o Tor não subiu — {exc}", file=sys.stderr)
+        return 1
+    try:
+        result = bridge_module.test_proxy(parse_proxy(processo.proxy_url))
+    finally:
+        processo.stop()
+    stream = sys.stdout if result.ok else sys.stderr
+    print(f"{config.exit_label}: {result.message}", file=stream)
+    return 0 if result.ok else 1
 
 
 def _tor(arguments: argparse.Namespace) -> int:
