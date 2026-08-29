@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "discord-proxy"
-version = "1.0.0"
+version = "1.0.2"
 description = "Proxy HTTP/SOCKS5 e ajuste de voz aplicados só ao Discord, sem mexer no sistema"
 readme = "README.md"
 requires-python = ">=3.10"
