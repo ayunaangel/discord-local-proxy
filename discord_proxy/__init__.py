@@ -9,5 +9,5 @@ Uso rápido:
     run.launch("stable")
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __all__ = ["__version__"]
