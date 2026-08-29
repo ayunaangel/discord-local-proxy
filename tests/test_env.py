@@ -1,5 +1,6 @@
 """Limpeza do rastro do empacotador antes de abrir um processo filho."""
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -47,10 +48,10 @@ class StripBundle(unittest.TestCase):
         self.assertEqual(limpo["HOME"], "/home/alguem")
 
     def test_preserva_o_que_a_pessoa_ja_tinha(self):
+        # O separador da lista é o do sistema: ":" aqui, ";" no Windows.
+        lista = os.pathsep.join(("/tmp/_MEI123", "/opt/cuda/lib"))
         with Frozen("/tmp/_MEI123"):
-            limpo = env_module.strip_bundle(
-                {"LD_LIBRARY_PATH": f"/tmp/_MEI123:/opt/cuda/lib"}
-            )
+            limpo = env_module.strip_bundle({"LD_LIBRARY_PATH": lista})
         self.assertEqual(limpo["LD_LIBRARY_PATH"], "/opt/cuda/lib")
 
     def test_devolve_o_valor_original_guardado(self):
@@ -65,7 +66,7 @@ class StripBundle(unittest.TestCase):
         # Sem `sys._MEIPASS`, a pasta do pacote ainda é descoberta pelo ambiente.
         limpo = env_module.strip_bundle(
             {
-                "LD_LIBRARY_PATH": "/tmp/_MEI123:/opt/cuda/lib",
+                "LD_LIBRARY_PATH": os.pathsep.join(("/tmp/_MEI123", "/opt/cuda/lib")),
                 "_PYI_APPLICATION_HOME_DIR": "/tmp/_MEI123",
             }
         )
