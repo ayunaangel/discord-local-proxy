@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -14,7 +15,14 @@ from . import tor as tor_module
 from . import voice as voice_module
 from . import config as _proxy_module
 from .config import CONFIG_NAME, Config, load_or_default
-from .discord import Install, detect_channel, install_for_executable, running_processes
+from .discord import (
+    CHANNEL_SPECS,
+    Install,
+    detect,
+    detect_channel,
+    install_for_executable,
+    running_processes,
+)
 
 # Variáveis lidas pelo componente nativo; sempre reescritas para não herdar lixo.
 ENV_INI = "DISCORD_PROXY_INI"
@@ -263,25 +271,128 @@ class StopReport:
         return "encerrado: " + ", ".join(partes)
 
 
+def _discord_names() -> set[str]:
+    """Nomes exatos de executável do Discord, em todos os canais.
+
+    Exatos de propósito: procurar a subcadeia "iscord" pegava junto qualquer
+    programa cujo nome contivesse "Discord" — inclusive o nosso, empacotado
+    como `DiscordProxy`.
+    """
+    nomes: set[str] = set()
+    for spec in CHANNEL_SPECS.values():
+        nomes.add(spec.windows_exe.lower())
+        nomes.add(spec.linux_exe.lower())
+        nomes.update(nome.lower() for nome in spec.linux_commands)
+    return nomes
+
+
+def _discord_executables() -> set[Path]:
+    """Binários das instalações que conseguimos encontrar, já resolvidos.
+
+    Cobre o que o nome não cobre: AppImage (`Discord-1.2.3.AppImage`) e um
+    executável apontado à mão no arquivo de configuração.
+    """
+    caminhos: set[Path] = set()
+    try:
+        instalacoes = list(detect())
+    except OSError:
+        instalacoes = []
+    try:
+        escolhido = load_or_default(config_path()).executable
+    except (OSError, ValueError):
+        escolhido = None
+    for caminho in [i.executable for i in instalacoes] + [escolhido]:
+        if caminho is None:
+            continue
+        try:
+            caminhos.add(Path(caminho).resolve(strict=False))
+        except OSError:
+            continue
+    return caminhos
+
+
+def _executable_of(pid: int) -> Path | None:
+    """Para onde aponta /proc/<pid>/exe, sem o sufixo de binário substituído."""
+    try:
+        alvo = os.readlink(f"/proc/{pid}/exe")
+    except OSError:
+        return None
+    # Depois de uma atualização o link vira "/caminho/Discord (deleted)".
+    if alvo.endswith(" (deleted)"):
+        alvo = alvo[: -len(" (deleted)")]
+    try:
+        return Path(alvo).resolve(strict=False)
+    except OSError:
+        return Path(alvo)
+
+
+def _parent_pid(pid: int) -> int | None:
+    try:
+        status = Path(f"/proc/{pid}/status").read_text(errors="replace")
+    except OSError:
+        return None
+    for linha in status.splitlines():
+        if linha.startswith("PPid:"):
+            try:
+                return int(linha.split()[1])
+            except (IndexError, ValueError):
+                return None
+    return None
+
+
+def _own_lineage() -> tuple[set[int], set[Path]]:
+    """Nós mesmos: este processo, seus ancestrais e os binários que nos rodam.
+
+    Empacotado com PyInstaller, o bootloader fica como processo pai do Python
+    e roda o mesmo binário. Sem esta guarda, "Encerrar sessão" mataria o pai
+    do próprio programa.
+    """
+    pids = {os.getpid()}
+    atual = os.getpid()
+    for _ in range(64):
+        pai = _parent_pid(atual)
+        if pai is None or pai <= 1 or pai in pids:
+            break
+        pids.add(pai)
+        atual = pai
+    binarios: set[Path] = set()
+    for pid in pids:
+        nosso = _executable_of(pid)
+        if nosso is not None:
+            binarios.add(nosso)
+    if sys.executable:
+        try:
+            binarios.add(Path(sys.executable).resolve(strict=False))
+        except OSError:
+            pass
+    return pids, binarios
+
+
 def _own_processes() -> tuple[list[int], list[int], list[int]]:
     """Separa o que é nosso: Discord, launcher e o Tor que nós subimos."""
     discord: list[int] = []
     launcher: list[int] = []
     tor: list[int] = []
-    proprio = os.getpid()
+    nossos_pids, nossos_binarios = _own_lineage()
+    nomes = _discord_names()
+    alvos = _discord_executables()
     raiz = str(voice_module.data_root())
     try:
         entradas = list(Path("/proc").iterdir())
     except OSError:
         return discord, launcher, tor
     for entrada in entradas:
-        if not entrada.name.isdigit() or int(entrada.name) == proprio:
+        if not entrada.name.isdigit():
             continue
         pid = int(entrada.name)
-        try:
-            executavel = os.path.basename(os.readlink(f"/proc/{pid}/exe"))
-        except OSError:
-            executavel = ""
+        if pid in nossos_pids:
+            continue
+        destino = _executable_of(pid)
+        executavel = destino.name.lower() if destino is not None else ""
+        # Quem roda o mesmo binário que nós nunca é Discord — a guarda vale só
+        # aqui: em modo de desenvolvimento o launcher é o mesmo Python que nos
+        # roda, e continuar reconhecendo-o é o esperado.
+        nosso_binario = destino is not None and destino in nossos_binarios
         try:
             partes = [
                 p
@@ -290,7 +401,10 @@ def _own_processes() -> tuple[list[int], list[int], list[int]]:
             ]
         except OSError:
             partes = []
-        if "iscord" in executavel:
+        # Nome exato ou o mesmo binário da instalação: pega também os filhos
+        # (renderer, zygote, gpu), que rodam o Discord de app-<versao>/.
+        e_discord = destino is not None and (destino in alvos or executavel in nomes)
+        if e_discord and not nosso_binario:
             discord.append(pid)
         elif executavel in {"tor", "tor.exe"} and any(raiz in p for p in partes):
             # só o Tor com a nossa pasta de dados; o Tor Browser da pessoa fica em paz
