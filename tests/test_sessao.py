@@ -119,8 +119,13 @@ class EncerrarSessao(unittest.TestCase):
 
     def _subir(self, nome: str, argumentos: list[str]) -> int:
         caminho = Path(self.directory.name) / nome
-        shutil.copy2(sys.executable, caminho)
-        caminho.chmod(0o755)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        if not caminho.exists():
+            # Copiar por cima de um binário em uso daria "Text file busy"; o
+            # mesmo caminho serve para subir vários processos, como os filhos
+            # do Discord fazem.
+            shutil.copy2(sys.executable, caminho)
+            caminho.chmod(0o755)
         processo = subprocess.Popen(
             [str(caminho), "-c", "import time; print('x', flush=True); time.sleep(30)"] + argumentos,
             stdout=subprocess.PIPE,
@@ -136,6 +141,28 @@ class EncerrarSessao(unittest.TestCase):
         pid = self._subir("Discord", [])
         discord, _, _ = run_module._own_processes()
         self.assertIn(pid, discord)
+
+    def test_o_nosso_programa_nao_e_o_discord(self):
+        """`DiscordProxy` contém "iscord" — e é justamente quem não pode morrer."""
+        pid = self._subir("DiscordProxy", [])
+        discord, launcher, tor = run_module._own_processes()
+        self.assertNotIn(pid, discord, "mataríamos o processo pai do próprio programa")
+        self.assertNotIn(pid, launcher)
+        self.assertNotIn(pid, tor)
+
+    def test_os_filhos_do_discord_entram_na_conta(self):
+        """Renderer, zygote e gpu rodam o mesmo binário de `app-<versao>/`."""
+        pai = self._subir("app-1.2.3/Discord", [])
+        filho = self._subir("app-1.2.3/Discord", ["--type=renderer"])
+        discord, _, _ = run_module._own_processes()
+        self.assertIn(pai, discord)
+        self.assertIn(filho, discord)
+
+    def test_nomes_de_canal_sao_exatos(self):
+        nomes = run_module._discord_names()
+        self.assertIn("discord", nomes)
+        self.assertIn("discordcanary", nomes)
+        self.assertNotIn("discordproxy", nomes)
 
     def test_o_tor_da_pessoa_nao_e_nosso(self):
         """O Tor Browser aberto pelo usuário não pode ser encerrado por nós."""
