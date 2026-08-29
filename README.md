@@ -9,7 +9,8 @@ sua região, e você precisa deles para trabalhar. Não mexe em proxy do sistema
 DNS, firewall, rotas nem certificados: o resto do computador continua saindo
 normalmente.
 
-Funciona no Windows, no Linux e no macOS.
+Funciona no Windows, no Linux e no macOS. Há pacote pronto para Windows e
+Linux; no macOS ele roda pelo código-fonte.
 
 > **Para quem não usa terminal:** abra o programa e siga a janela. O passo a
 > passo completo está em [COMO-USAR.txt](COMO-USAR.txt).
