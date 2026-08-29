@@ -22,6 +22,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import env as env_module
 from .voice import data_root
 
 BOOTSTRAP_TIMEOUT = 240.0
@@ -273,7 +274,8 @@ def start(
             )
         arguments += ["--ExitNodes", "{" + country + "}", "--StrictNodes", "1"]
 
-    environment = dict(os.environ)
+    # Sem a limpeza, as bibliotecas do empacotador entrariam na busca do Tor.
+    environment = env_module.strip_bundle()
     if program.library_dir is not None and os.name != "nt":
         previous = environment.get("LD_LIBRARY_PATH", "")
         parts = [str(program.library_dir), str(program.library_dir.parent.parent)]

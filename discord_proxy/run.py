@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 from . import bridge as bridge_module
+from . import env as env_module
 from . import tor as tor_module
 from . import voice as voice_module
 from . import config as _proxy_module
@@ -480,7 +481,10 @@ def _environment(
         ENV_STATE,
     }
     lowered = {name.casefold() for name in blocked}
-    environment = {k: v for k, v in source.items() if k.casefold() not in lowered}
+    # Empacotados, herdamos um LD_LIBRARY_PATH que faria o Discord carregar as
+    # bibliotecas do nosso Python e morrer antes de escrever qualquer log.
+    inherited = env_module.strip_bundle(source)
+    environment = {k: v for k, v in inherited.items() if k.casefold() not in lowered}
 
     environment[ENV_VOICE] = "1" if config.voice and shim is not None else "0"
     environment[ENV_DELAY] = str(config.delay_ms)
