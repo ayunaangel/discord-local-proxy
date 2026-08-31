@@ -30,6 +30,3 @@ Repositório = "https://github.com/ayunaangel/discord-local-proxy"
 
 [tool.setuptools]
 packages = ["discord_proxy"]
-
-[tool.setuptools.package-data]
-discord_proxy = ["native/*"]
