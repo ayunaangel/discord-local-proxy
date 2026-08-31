@@ -43,6 +43,11 @@ jobs:
       - name: Empacotar
         run: python package.py --name ${{ matrix.artefato }}
 
+      # Deixa o hash no log público da build: quem for liberar o arquivo no
+      # antivírus consegue conferir contra algo que não veio junto do download.
+      - name: Somas de verificação
+        run: cat release/*.sha256
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artefato }}

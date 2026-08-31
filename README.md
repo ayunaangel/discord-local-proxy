@@ -236,8 +236,65 @@ primeiros bytes do fluxo. Não cria túnel e não muda região.
 O `version.dll` nunca sobrescreve um `version.dll` que não seja nosso: a
 instalação guarda o hash e a remoção só apaga se bater, e a arquitetura do PE é
 conferida antes (uma DLL de arquitetura errada impediria o Discord de abrir).
-Alguns antivírus reclamam de qualquer DLL ao lado de um `.exe` — confira o hash
-do release e o código antes de liberar.
+
+Vale saber que **pôr uma DLL ao lado de um `.exe` é, em si, uma técnica que
+antivírus vigiam** — é assim que um malware sequestra um programa legítimo. Aqui
+ela é opcional, desligada por padrão e só entra quando você liga `voice = on`.
+Se o antivírus reclamar, veja a seção abaixo.
+
+## Se o Windows Defender bloquear
+
+Acontece, e é falso positivo. O executável do Windows é feito com PyInstaller e
+**não tem assinatura digital** — assinar exige um certificado pago que este
+projeto não tem. Para o Defender, um binário desconhecido, sem assinatura e sem
+histórico de downloads é suspeito por definição, e a acusação costuma vir com
+nome genérico de heurística (`Wacatac`, `Sabsik`, `Zpevdo`, `Wacapew`). É uma
+detecção do jeito como o programa foi empacotado, não do que ele faz.
+
+O que já foi feito deste lado, e vale a partir da próxima versão publicada:
+
+- o executável saiu do modo "arquivo único" e passou a **modo pasta**. O arquivo
+  único se descompacta sozinho em `%TEMP%` e roda de lá, que é o comportamento
+  mais pontuado pela heurística;
+- o `.exe` leva **metadados** (empresa, produto, versão), em vez de vir em branco;
+- o programa deixou de ficar numa pasta com ponto na frente, que parecia
+  esconderijo, e agora fica em `programa\`;
+- o atalho do Menu Iniciar não chama mais o PowerShell com
+  `-ExecutionPolicy Bypass`;
+- cada release traz os hashes SHA-256 do pacote e dos arquivos de dentro.
+
+Nada disso é garantia: sem certificado de assinatura, a reputação do arquivo
+começa do zero a cada versão nova. Se mesmo assim for bloqueado, em ordem de
+preferência:
+
+1. **Rode pelo código-fonte.** Não passa por executável nosso nenhum — quem roda
+   é o `python.exe`, que é assinado pela Python Software Foundation. Instale o
+   Python, baixe o código e use o `INICIAR-WINDOWS.cmd`. É o caminho para quem
+   foi bloqueado e não quer mexer no antivírus.
+2. **Confira o hash e libere.** Compare o que você baixou com o `.sha256` da
+   página de releases:
+
+   ```
+   certutil -hashfile DiscordProxy-Windows-x64.zip SHA256
+   ```
+
+   Batendo, o arquivo é o mesmo que a Actions do GitHub gerou a partir deste
+   código — o build é público e dá para ler o log inteiro. Aí, em
+   **Segurança do Windows → Proteção contra vírus → Histórico de proteção**,
+   restaure o arquivo e, se necessário, adicione a pasta em **Exclusões**. Os
+   hashes dos arquivos de dentro estão em `programa\SHA256SUMS.txt`.
+3. **Reporte o falso positivo à Microsoft**, em
+   <https://www.microsoft.com/en-us/wdsi/filesubmission>. Costuma sair em alguns
+   dias e conserta para todo mundo, não só para você.
+
+**Não desligue o antivírus.** Liberar um arquivo específico, depois de conferir
+o hash, é uma coisa; ficar sem proteção é outra.
+
+Se a acusação for de um arquivo `version.dll`, é o componente do ajuste de voz.
+Ele vem no pacote, mas **só sai de lá se você ligar `voice = on`** — com o
+padrão `voice = off` ele nunca é copiado para a pasta do Discord, que é a parte
+que o antivírus vigia. Se você já ligou e quer desfazer, `clean` remove o que foi
+instalado (e só se o hash bater com o nosso).
 
 ## Compilar
 
@@ -270,6 +327,10 @@ Pacote para a página de releases (precisa do PyInstaller):
 python -m pip install pyinstaller
 python package.py
 ```
+
+Sai em `release/`, com o `.sha256` ao lado. No Windows o executável vem em modo
+pasta e com metadados preenchidos — as duas coisas existem para reduzir falso
+positivo de antivírus, e trocá-las por `--onefile` reabre o problema.
 
 Testes:
 

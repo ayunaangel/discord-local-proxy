@@ -4,7 +4,9 @@
 set -e
 aqui=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-for candidato in "$aqui/DiscordProxy" "$aqui/.discord-proxy/DiscordProxy"; do
+# a pasta com ponto na frente é de pacotes antigos, mantida por compatibilidade
+for candidato in "$aqui/DiscordProxy" "$aqui/programa/DiscordProxy" \
+                 "$aqui/.discord-proxy/DiscordProxy"; do
     if [ -f "$candidato" ]; then
         [ -x "$candidato" ] || chmod +x "$candidato" 2>/dev/null || true
         exec "$candidato" "$@"

@@ -18,6 +18,53 @@ Windows: clique duas vezes em INICIAR-WINDOWS.cmd
 Linux:   clique duas vezes em INICIAR-LINUX.sh e escolha "Executar"
 
 
+O WINDOWS BLOQUEOU / O ANTIVÍRUS ACUSOU
+---------------------------------------
+Isso é falso positivo, e acontece porque o programa não tem assinatura
+digital — o certificado para assinar é pago e este projeto não tem. O
+Windows desconfia de qualquer programa novo e desconhecido, mesmo que
+ele não faça nada de errado.
+
+Você tem três saídas. A primeira é a mais simples e nem mexe no
+antivírus:
+
+1) RODAR PELO CÓDIGO-FONTE (o caminho recomendado se você foi bloqueado)
+   Quem passa a rodar é o Python, que é um programa assinado e conhecido.
+   - Instale o Python: https://www.python.org/downloads/
+     Na instalação, MARQUE a caixa "Add Python to PATH".
+   - Baixe o código em https://github.com/ayunaangel/discord-local-proxy
+     (botão verde "Code" > "Download ZIP"), extraia e clique duas vezes
+     em INICIAR-WINDOWS.cmd.
+
+2) CONFERIR E LIBERAR O ARQUIVO
+   Na página de releases, cada pacote tem um arquivo .sha256 ao lado.
+   Abra o Prompt de Comando na pasta onde você baixou e rode:
+
+       certutil -hashfile DiscordProxy-Windows-x64.zip SHA256
+
+   Se o código que aparecer for igual ao que está no arquivo .sha256, o
+   pacote é exatamente o que o GitHub gerou a partir do código público.
+   Aí dá para liberar:
+   - Abra "Segurança do Windows"
+   - "Proteção contra vírus e ameaças" > "Histórico de proteção"
+   - Ache o item, clique em "Ações" e escolha "Permitir no dispositivo"
+   - Se precisar, em "Gerenciar configurações" > "Exclusões", adicione a
+     pasta do programa.
+
+3) AVISAR A MICROSOFT DO ERRO
+   Em https://www.microsoft.com/en-us/wdsi/filesubmission dá para enviar
+   o arquivo como falso positivo. Costuma sair em alguns dias e conserta
+   para todo mundo, não só para você.
+
+NÃO DESLIGUE O ANTIVÍRUS. Liberar um arquivo depois de conferir o hash
+dele é uma coisa; ficar sem proteção é outra bem diferente.
+
+Se a acusação falar de um arquivo chamado "version.dll": esse é o ajuste
+de voz, que serve só para rede que bloqueia chamada e vem DESLIGADO. Ele
+fica guardado dentro da pasta do programa e não encosta na pasta do
+Discord enquanto você não ligar a opção de voz nos ajustes avançados.
+
+
 PASSO A PASSO
 -------------
 1. Na janela, escolha em "De onde você quer sair":
@@ -95,3 +142,6 @@ A imagem some quando eu envio
 
 O Discord não foi encontrado
     Em "Ajustes avançados", informe o caminho do programa.
+
+"O Windows protegeu o seu computador", ou o antivírus apagou o arquivo
+    Falso positivo. Veja "O WINDOWS BLOQUEOU" no começo deste arquivo.

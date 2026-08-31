@@ -120,8 +120,9 @@ def _create_windows(install: Install) -> Shortcut:
             "powershell.exe",
             "-NoProfile",
             "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
+            # Sem `-ExecutionPolicy Bypass`: a política vale para arquivos .ps1,
+            # não para `-Command`, e desligá-la à toa é um dos gestos que o
+            # antivírus pontua contra um programa sem assinatura.
             "-Command",
             script,
         ],

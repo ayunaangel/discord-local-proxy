@@ -9,6 +9,11 @@ if exist "%AQUI%DiscordProxy.exe" (
     start "" "%AQUI%DiscordProxy.exe" %*
     goto :fim
 )
+if exist "%AQUI%programa\DiscordProxy.exe" (
+    start "" "%AQUI%programa\DiscordProxy.exe" %*
+    goto :fim
+)
+rem pacotes antigos guardavam o programa numa pasta com ponto na frente
 if exist "%AQUI%.discord-proxy\DiscordProxy.exe" (
     start "" "%AQUI%.discord-proxy\DiscordProxy.exe" %*
     goto :fim
